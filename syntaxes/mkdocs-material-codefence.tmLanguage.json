@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "MkDocs Material Linter Code Fence",
+  "scopeName": "mkdocs-material-linter.codefence",
+  "injectionSelector": "markup.fenced_code.block.markdown",
+  "patterns": [
+    {
+      "name": "mkdocs.diagram.fence",
+      "match": "^\\s*(```+|~~~+)\\s*mermaid\\b.*$"
+    },
+    {
+      "name": "mkdocs.code.fence",
+      "match": "^\\s*(```+|~~~+).*$"
+    }
+  ]
+}

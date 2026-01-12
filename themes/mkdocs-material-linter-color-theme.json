@@ -1,0 +1,193 @@
+{
+  "name": "MkDocs Material Linter",
+  "type": "light",
+  "tokenColors": [
+    {
+      "name": "MkDocs Admonitions",
+      "scope": [
+        "mkdocs.admonition.marker",
+        "mkdocs.admonition.type",
+        "mkdocs.admonition.modifier",
+        "mkdocs.admonition.title"
+      ],
+      "settings": {
+        "foreground": "#D97706"
+      }
+    },
+    {
+      "name": "MkDocs Front Matter",
+      "scope": [
+        "mkdocs.frontmatter.delimiter",
+        "mkdocs.frontmatter.key",
+        "mkdocs.frontmatter.value"
+      ],
+      "settings": {
+        "foreground": "#0F766E"
+      }
+    },
+    {
+      "name": "MkDocs Headings",
+      "scope": [
+        "mkdocs.heading"
+      ],
+      "settings": {
+        "foreground": "#1D4ED8",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "MkDocs Blockquotes",
+      "scope": [
+        "mkdocs.blockquote",
+        "markup.quote.markdown",
+        "punctuation.definition.blockquote.markdown"
+      ],
+      "settings": {
+        "foreground": "#374151",
+        "background": "#E5E7EB"
+      }
+    },
+    {
+      "name": "MkDocs Annotations",
+      "scope": [
+        "mkdocs.annotation.block",
+        "mkdocs.annotation.marker"
+      ],
+      "settings": {
+        "foreground": "#0EA5E9"
+      }
+    },
+    {
+      "name": "MkDocs Buttons",
+      "scope": [
+        "mkdocs.button.class"
+      ],
+      "settings": {
+        "foreground": "#22C55E"
+      }
+    },
+    {
+      "name": "MkDocs Code Fences",
+      "scope": [
+        "mkdocs.code.fence"
+      ],
+      "settings": {
+        "foreground": "#64748B"
+      }
+    },
+    {
+      "name": "MkDocs Content Tabs",
+      "scope": [
+        "mkdocs.tab.marker",
+        "mkdocs.tab.title"
+      ],
+      "settings": {
+        "foreground": "#8B5CF6"
+      }
+    },
+    {
+      "name": "MkDocs Data Tables",
+      "scope": [
+        "mkdocs.table.row",
+        "mkdocs.table.separator"
+      ],
+      "settings": {
+        "foreground": "#F97316",
+        "background": "#FFF1E6"
+      }
+    },
+    {
+      "name": "MkDocs Diagrams",
+      "scope": [
+        "mkdocs.diagram.fence"
+      ],
+      "settings": {
+        "foreground": "#06B6D4"
+      }
+    },
+    {
+      "name": "MkDocs Footnotes",
+      "scope": [
+        "mkdocs.footnote.ref",
+        "mkdocs.footnote.def"
+      ],
+      "settings": {
+        "foreground": "#A855F7"
+      }
+    },
+    {
+      "name": "MkDocs Formatting",
+      "scope": [
+        "mkdocs.format.critic",
+        "mkdocs.format.comment",
+        "mkdocs.format.delete",
+        "mkdocs.format.insert",
+        "mkdocs.format.mark",
+        "mkdocs.format.underline",
+        "mkdocs.format.keys"
+      ],
+      "settings": {
+        "foreground": "#EC4899"
+      }
+    },
+    {
+      "name": "MkDocs Grids",
+      "scope": [
+        "mkdocs.grid.container",
+        "mkdocs.grid.card"
+      ],
+      "settings": {
+        "foreground": "#84CC16"
+      }
+    },
+    {
+      "name": "MkDocs Icons and Emojis",
+      "scope": [
+        "mkdocs.icon"
+      ],
+      "settings": {
+        "foreground": "#F59E0B"
+      }
+    },
+    {
+      "name": "MkDocs Images",
+      "scope": [
+        "mkdocs.image.inline",
+        "mkdocs.image.caption"
+      ],
+      "settings": {
+        "foreground": "#10B981"
+      }
+    },
+    {
+      "name": "MkDocs Lists",
+      "scope": [
+        "mkdocs.list.marker",
+        "mkdocs.list.task",
+        "mkdocs.list.definition"
+      ],
+      "settings": {
+        "foreground": "#3B82F6"
+      }
+    },
+    {
+      "name": "MkDocs Math",
+      "scope": [
+        "mkdocs.math"
+      ],
+      "settings": {
+        "foreground": "#EF4444"
+      }
+    },
+    {
+      "name": "MkDocs Tooltips",
+      "scope": [
+        "mkdocs.tooltip",
+        "mkdocs.tooltip.abbr"
+      ],
+      "settings": {
+        "foreground": "#14B8A6"
+      }
+    }
+  ]
+}

@@ -1,71 +1,78 @@
-# mkdocs-material-linter README
+# Mkdocs Material Linter
 
-This is the README for your extension "mkdocs-material-linter". After writing up a brief description, we recommend including the following sections.
+Markdown lints for MkDocs Material in VS Code. It highlights common syntax mistakes and inconsistent patterns for MkDocs Material blocks.
 
-## Features
+## What it checks
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Admonition markers can be written with or without a space: `!!! note` or `!!!note`, `??? tip` or `???tip`, `???+ question` or `???+question`
+- Admonition type is required after the marker
+- Admonition type must be a simple identifier (letters, numbers, `_`, `-`)
+- Unknown admonition types are flagged as warnings
+- Admonition titles must have closed quotes if a quote is used
+- Admonition content must be indented by 4 spaces or a tab (relative to the admonition line)
+- Tabs must be written as `=== "Title"` or `=== 'Title'`
+- Tab titles must use matching quotes
+- Tab content must be indented by 4 spaces or a tab (relative to the tab line)
+- Table header must be followed by a separator row, and column counts must match
+- Unordered list markers must be followed by a space
+- Ordered list markers must be followed by a space
+- Task list checkboxes must be followed by a space
 
-For example if there is an image subfolder under your extension project workspace:
+## Syntax highlighting
 
-\!\[feature X\]\(images/feature-x.png\)
+This extension ships a color theme named `MkDocs Material Linter`. Select it in
+VS Code to see module-specific colors.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- Admonitions: orange
+- Annotations: sky blue
+- Buttons: green
+- Code blocks (fence lines): slate
+- Content tabs: violet
+- Data tables: orange-red with light background
+- Diagrams (mermaid fences): cyan
+- Footnotes: purple
+- Formatting (critic markup, highlights, keys): pink
+- Grids: lime
+- Icons & emojis: amber
+- Images: emerald
+- Lists: blue
+- Math: red
+- Tooltips: teal
+- Front matter (`---` with YAML keys/values): teal
+- Headings (`#` through `######`): bold blue
+- Blockquotes (`>` lines): gray background
+- Tables: light background (via editor decorations)
+- Admonitions: light background (via editor decorations)
 
-## Requirements
+## Examples
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+```md
+!!! note "Title"
+    This is valid.
 
-## Extension Settings
+???+ question "FAQ"
+    This is valid.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+=== "Tab A"
+    Tab content.
+```
 
-For example:
+```md
+!!!note
+Text not indented.
 
-This extension contributes the following settings:
+???+question
+    Missing space after marker.
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+=== Tab A
+    Missing quotes.
 
-## Known Issues
+-item
+1.item
+- [x]Done
+```
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+## Supported files
 
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- Markdown (`.md`)
+- MDX (`.mdx`)

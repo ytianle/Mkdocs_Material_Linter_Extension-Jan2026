@@ -4,18 +4,39 @@
   "description": "A markdown linter specific for mkdocs material style.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.108.1"
+    "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:mdx"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
+    "grammars": [
       {
-        "command": "mkdocs-material-linter.helloWorld",
-        "title": "Hello World"
+        "language": "markdown",
+        "scopeName": "mkdocs-material-linter.markdown",
+        "path": "./syntaxes/mkdocs-material-linter.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ]
+      },
+      {
+        "scopeName": "mkdocs-material-linter.codefence",
+        "path": "./syntaxes/mkdocs-material-codefence.tmLanguage.json",
+        "injectTo": [
+          "markup.fenced_code.block.markdown"
+        ]
+      }
+    ],
+    "themes": [
+      {
+        "label": "MkDocs Material Linter",
+        "uiTheme": "vs",
+        "path": "./themes/mkdocs-material-linter-color-theme.json"
       }
     ]
   },

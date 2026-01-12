@@ -1,0 +1,184 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "MkDocs Material Linter",
+  "scopeName": "mkdocs-material-linter.markdown",
+  "injectionSelector": "text.html.markdown - markup.code.block.markdown - markup.fenced_code.block.markdown",
+  "patterns": [
+    {
+      "name": "mkdocs.admonition.marker",
+      "match": "^\\s*(!!!|\\?\\?\\?|\\?\\?\\?\\+)\\b"
+    },
+    {
+      "name": "mkdocs.frontmatter.delimiter",
+      "match": "^---\\s*$"
+    },
+    {
+      "name": "mkdocs.frontmatter.key",
+      "match": "^[A-Za-z0-9_-]+\\s*:(?=\\s|$)"
+    },
+    {
+      "name": "mkdocs.frontmatter.value",
+      "match": ":(?=\\s|$)\\s*[^#]+$"
+    },
+    {
+      "name": "mkdocs.heading",
+      "match": "^\\s{0,3}#{1,6}\\s+.+$"
+    },
+    {
+      "name": "mkdocs.blockquote",
+      "match": "^\\s*>\\s+.+$"
+    },
+    {
+      "name": "mkdocs.admonition.type",
+      "match": "^\\s*(?:!!!|\\?\\?\\?|\\?\\?\\?\\+)\\s*[a-zA-Z][\\w-]*\\b"
+    },
+    {
+      "name": "mkdocs.admonition.modifier",
+      "match": "^\\s*(?:!!!|\\?\\?\\?|\\?\\?\\?\\+)\\s*[a-zA-Z][\\w-]*(?:\\s+(?:inline|end|annotate))+\\b"
+    },
+    {
+      "name": "mkdocs.admonition.title",
+      "match": "^\\s*(?:!!!|\\?\\?\\?|\\?\\?\\?\\+)\\s*[a-zA-Z][\\w-]*(?:\\s+(?:inline|end|annotate))?\\s+(\"[^\"]*\"|'[^']*')"
+    },
+    {
+      "name": "mkdocs.annotation.block",
+      "match": "\\{\\s*\\.annotate\\b[^}]*\\}"
+    },
+    {
+      "name": "mkdocs.annotation.marker",
+      "match": "\\(\\d+\\)"
+    },
+    {
+      "name": "mkdocs.button.class",
+      "match": "\\{[^}]*\\b\\.md-button(?:--primary)?\\b[^}]*\\}"
+    },
+    {
+      "name": "mkdocs.tab.marker",
+      "match": "^\\s*===\\b"
+    },
+    {
+      "name": "mkdocs.tab.title",
+      "match": "^\\s*===\\s+(\"[^\"]+\"|'[^']+')"
+    },
+    {
+      "name": "mkdocs.grid.container",
+      "match": "<div\\s+class=\"[^\"]*\\bgrid\\b[^\"]*\"[^>]*>"
+    },
+    {
+      "name": "mkdocs.grid.card",
+      "match": "\\{\\s*\\.card\\b[^}]*\\}"
+    },
+    {
+      "name": "mkdocs.icon",
+      "match": ":[a-z0-9][a-z0-9_-]*(?:-[a-z0-9_-]+)*:"
+    },
+    {
+      "name": "mkdocs.image.inline",
+      "match": "!\\[[^\\]]*\\]\\([^\\)]+\\)"
+    },
+    {
+      "name": "mkdocs.image.caption",
+      "match": "^\\s*///\\s*caption\\s*$"
+    },
+    {
+      "name": "mkdocs.image.caption",
+      "match": "^\\s*///\\s*$"
+    },
+    {
+      "name": "mkdocs.list.task",
+      "match": "^\\s*[-+*]\\s+\\[[ xX]\\](?=\\s)"
+    },
+    {
+      "name": "mkdocs.list.marker",
+      "match": "^\\s*[-+*](?=\\s)"
+    },
+    {
+      "name": "mkdocs.list.marker",
+      "match": "^\\s*\\d+\\.(?=\\s)"
+    },
+    {
+      "name": "mkdocs.list.definition",
+      "match": "^\\s*:\\s{2,}"
+    },
+    {
+      "name": "mkdocs.table.separator",
+      "match": "^\\s*\\|\\s*:?[-]{3,}.*\\|\\s*$"
+    },
+    {
+      "name": "mkdocs.table.row",
+      "match": "^\\s*\\|.*\\|\\s*$"
+    },
+    {
+      "name": "mkdocs.footnote.def",
+      "match": "^\\s*\\[\\^[^\\]]+\\]:"
+    },
+    {
+      "name": "mkdocs.footnote.ref",
+      "match": "\\[\\^[^\\]]+\\]"
+    },
+    {
+      "name": "mkdocs.format.critic",
+      "match": "\\{~~[^\\n]+?~>[^\\n]+?~~\\}"
+    },
+    {
+      "name": "mkdocs.format.delete",
+      "match": "\\{--[^\\n]+?--\\}"
+    },
+    {
+      "name": "mkdocs.format.insert",
+      "match": "\\{\\+\\+[^\\n]+?\\+\\+\\}"
+    },
+    {
+      "name": "mkdocs.format.mark",
+      "match": "\\{==[^\\n]+?==\\}"
+    },
+    {
+      "name": "mkdocs.format.comment",
+      "match": "\\{>>[^\\n]+?<<\\}"
+    },
+    {
+      "name": "mkdocs.format.mark",
+      "match": "==[^=\\n]+=="
+    },
+    {
+      "name": "mkdocs.format.underline",
+      "match": "\\^\\^[^\\n]+\\^\\^"
+    },
+    {
+      "name": "mkdocs.format.delete",
+      "match": "~~[^\\n]+~~"
+    },
+    {
+      "name": "mkdocs.format.keys",
+      "match": "\\+\\+[^\\n\\+]+(?:\\+[^\\n\\+]+)+\\+\\+"
+    },
+    {
+      "name": "mkdocs.math",
+      "match": "\\$\\$"
+    },
+    {
+      "name": "mkdocs.math",
+      "match": "\\$[^\\$\\n]+\\$"
+    },
+    {
+      "name": "mkdocs.math",
+      "match": "\\\\\\([^\\n]+?\\\\\\)"
+    },
+    {
+      "name": "mkdocs.math",
+      "match": "\\\\\\[[^\\n]+?\\\\\\]"
+    },
+    {
+      "name": "mkdocs.tooltip",
+      "match": "\\[[^\\]]+\\]\\([^\\)]+\\s+\"[^\"]+\"\\)"
+    },
+    {
+      "name": "mkdocs.tooltip",
+      "match": "\\{[^}]*\\btitle\\s*=\\s*\"[^\"]+\"[^}]*\\}"
+    },
+    {
+      "name": "mkdocs.tooltip.abbr",
+      "match": "\\*\\[[^\\]]+\\]:"
+    }
+  ]
+}
