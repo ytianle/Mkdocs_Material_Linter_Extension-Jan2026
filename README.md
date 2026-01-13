@@ -10,6 +10,7 @@ Markdown lints for MkDocs Material in VS Code. It highlights common syntax mista
 - Unknown admonition types are flagged as warnings
 - Admonition titles must have closed quotes if a quote is used
 - Admonition content must be indented by 4 spaces or a tab (relative to the admonition line)
+- Admonition content must start after a blank line unless the first content line is a list
 - Tabs must be written as `=== "Title"` or `=== 'Title'`
 - Tab titles must use matching quotes
 - Tab content must be indented by 4 spaces or a tab (relative to the tab line)
@@ -17,6 +18,7 @@ Markdown lints for MkDocs Material in VS Code. It highlights common syntax mista
 - Unordered list markers must be followed by a space
 - Ordered list markers must be followed by a space
 - Task list checkboxes must be followed by a space
+- Lists in normal text should be preceded by a blank line
 
 ## Syntax highlighting
 
@@ -42,7 +44,10 @@ VS Code to see module-specific colors.
 - Headings (`#` through `######`): bold blue
 - Blockquotes (`>` lines): gray background
 - Tables: light background (via editor decorations)
-- Admonitions: light background (via editor decorations)
+- Table headers: darker background + bold (via editor decorations)
+- Tables: outer border + row separators (via editor decorations)
+- Admonitions: type-specific narrow color bars with subtle background (nested blocks show multiple bars)
+- Inline emphasis (`*italic*`, `**bold**`, `***bold italic***`): styled
 
 ## Examples
 
@@ -76,3 +81,7 @@ Text not indented.
 
 - Markdown (`.md`)
 - MDX (`.mdx`)
+
+## Editor shortcuts
+
+- Toggle underline (MkDocs `^^underline^^`): `Ctrl+U` / `Cmd+U`

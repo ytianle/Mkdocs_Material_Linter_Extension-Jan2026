@@ -131,6 +131,45 @@
       }
     },
     {
+      "name": "MkDocs Underline",
+      "scope": [
+        "mkdocs.format.underline"
+      ],
+      "settings": {
+        "fontStyle": "underline"
+      }
+    },
+    {
+      "name": "MkDocs Inline Bold/Italic",
+      "scope": [
+        "mkdocs.inline.bolditalic"
+      ],
+      "settings": {
+        "foreground": "#1F2937",
+        "fontStyle": "bold italic"
+      }
+    },
+    {
+      "name": "MkDocs Inline Bold",
+      "scope": [
+        "mkdocs.inline.bold"
+      ],
+      "settings": {
+        "foreground": "#1F2937",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "MkDocs Inline Italic",
+      "scope": [
+        "mkdocs.inline.italic"
+      ],
+      "settings": {
+        "foreground": "#374151",
+        "fontStyle": "italic"
+      }
+    },
+    {
       "name": "MkDocs Grids",
       "scope": [
         "mkdocs.grid.container",

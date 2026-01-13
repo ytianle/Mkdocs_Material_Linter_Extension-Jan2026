@@ -15,6 +15,20 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "mkdocs-material-linter.toggleUnderline",
+        "title": "MkDocs Material: Toggle Underline (^^)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mkdocs-material-linter.toggleUnderline",
+        "key": "ctrl+u",
+        "mac": "cmd+u",
+        "when": "editorTextFocus && !editorReadonly"
+      }
+    ],
     "grammars": [
       {
         "language": "markdown",

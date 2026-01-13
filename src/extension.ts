@@ -12,6 +12,7 @@ const ADMONITION_TYPES = new Set([
 	'warning',
 	'failure',
 	'danger',
+	'error',
 	'bug',
 	'example',
 	'quote',
@@ -29,11 +30,78 @@ export function activate(context: vscode.ExtensionContext) {
 		isWholeLine: true,
 		backgroundColor: 'rgba(255, 241, 230, 0.7)',
 	});
-	const admonitionDecoration = vscode.window.createTextEditorDecorationType({
+	const tableHeaderDecoration = vscode.window.createTextEditorDecorationType({
 		isWholeLine: true,
-		backgroundColor: 'rgba(254, 243, 199, 0.6)',
+		backgroundColor: 'rgba(249, 219, 186, 0.6)',
+		fontWeight: 'bold',
 	});
-	context.subscriptions.push(blockquoteDecoration, tableDecoration, admonitionDecoration);
+	const tableRowBorderDecoration = vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		borderStyle: 'solid',
+		borderColor: '#e0cda9',
+		borderWidth: '0 1px 1px 1px',
+	});
+	const tableFirstRowBorderDecoration = vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		borderStyle: 'solid',
+		borderColor: '#e0cda9',
+		borderWidth: '1px 1px 1px 1px',
+	});
+	let admonitionDecorations = createAdmonitionDecorations(vscode.window.activeColorTheme.kind);
+	const admonitionDisposable = new vscode.Disposable(() => admonitionDecorations.dispose());
+	context.subscriptions.push(
+		blockquoteDecoration,
+		tableDecoration,
+		tableHeaderDecoration,
+		tableRowBorderDecoration,
+		tableFirstRowBorderDecoration,
+		admonitionDisposable,
+	);
+
+	const underlineCommand = vscode.commands.registerCommand('mkdocs-material-linter.toggleUnderline', () => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			return;
+		}
+
+		const document = editor.document;
+		editor.edit((editBuilder) => {
+			for (const selection of editor.selections) {
+				const selectedText = document.getText(selection);
+				if (selectedText.length === 0) {
+					editBuilder.insert(selection.start, '^^^^');
+					continue;
+				}
+
+				if (selectedText.startsWith('^^') && selectedText.endsWith('^^') && selectedText.length >= 4) {
+					editBuilder.replace(selection, selectedText.slice(2, -2));
+				} else {
+					editBuilder.replace(selection, `^^${selectedText}^^`);
+				}
+			}
+		}).then(() => {
+			const updatedSelections = editor.selections.map((selection) => {
+				if (selection.isEmpty) {
+					const pos = selection.start;
+					return new vscode.Selection(
+						new vscode.Position(pos.line, pos.character + 2),
+						new vscode.Position(pos.line, pos.character + 2),
+					);
+				}
+
+				if (selection.start.character >= 2 && selection.end.character >= 2) {
+					return new vscode.Selection(
+						selection.start.translate(0, 2),
+						selection.end.translate(0, 2),
+					);
+				}
+
+				return selection;
+			});
+			editor.selections = updatedSelections;
+		});
+	});
+	context.subscriptions.push(underlineCommand);
 
 	const lint = (document: vscode.TextDocument) => {
 		if (!isMarkdownDocument(document)) {
@@ -44,13 +112,22 @@ export function activate(context: vscode.ExtensionContext) {
 		const results: vscode.Diagnostic[] = [];
 		const blockquoteRanges: vscode.Range[] = [];
 		const tableRanges: vscode.Range[] = [];
-		const admonitionRanges: vscode.Range[] = [];
+		const tableHeaderRanges: vscode.Range[] = [];
+		const tableRowBorderRanges: vscode.Range[] = [];
+		const tableFirstRowBorderRanges: vscode.Range[] = [];
+		const admonitionTitleRanges = createAdmonitionRangeMap();
+		const admonitionBackgroundRanges = createAdmonitionRangeMap();
+		const admonitionGutterRanges = createAdmonitionGutterRangeMap();
+		const admonitionBlocks: AdmonitionBlock[] = [];
 
 		let inFence = false;
 		let fenceMarker = '';
 		let inFrontmatter = false;
 
 		let inBlockquote = false;
+		let inTable = false;
+		let tableStart = 0;
+		const tableBlocks: Array<{ start: number; end: number }> = [];
 
 		for (let i = 0; i < lines.length; i += 1) {
 			const line = lines[i];
@@ -90,6 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
 			checkTabSyntax(line, i, document, results);
 			checkListSpacing(lines, i, document, results);
 			checkTableSyntax(lines, i, document, results);
+			checkBlankLineBeforeList(lines, i, document, results);
 
 			if (isAdmonitionHeader(line)) {
 				checkIndentedBody(
@@ -100,10 +178,19 @@ export function activate(context: vscode.ExtensionContext) {
 					'Admonition content must be indented by 4 spaces or a tab.',
 					null,
 				);
+				checkBlankLineBeforeNonListAdmonitionContent(
+					lines,
+					i,
+					document,
+					results,
+					'Admonition content should start after a blank line unless it is a list.',
+				);
+				const admonitionType = getAdmonitionType(line);
+				const styleKey = normalizeAdmonitionType(admonitionType);
 				const endIndex = findAdmonitionBlockEnd(lines, i);
-				for (let j = i; j <= endIndex; j += 1) {
-					admonitionRanges.push(new vscode.Range(new vscode.Position(j, 0), new vscode.Position(j, lines[j].length)));
-				}
+				const indentWidth = getIndentWidth(lines[i]);
+				admonitionTitleRanges[styleKey].push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				admonitionBlocks.push({ start: i, end: endIndex, type: styleKey, indentWidth, depth: 0 });
 			}
 
 			if (isTabHeader(line)) {
@@ -127,19 +214,52 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			if (isTableLineAt(lines, i)) {
+				if (!inTable) {
+					inTable = true;
+					tableStart = i;
+				}
 				tableRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				if (isTableHeaderLine(lines, i)) {
+					tableHeaderRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				}
+			} else if (inTable) {
+				tableBlocks.push({ start: tableStart, end: i - 1 });
+				inTable = false;
+			}
+		}
+
+		if (inTable) {
+			tableBlocks.push({ start: tableStart, end: lines.length - 1 });
+		}
+
+		for (const block of tableBlocks) {
+			for (let i = block.start; i <= block.end; i += 1) {
+				const line = lines[i];
+				tableRowBorderRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				if (i === block.start) {
+					tableFirstRowBorderRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				}
 			}
 		}
 
 		diagnostics.set(document.uri, results);
+		buildAdmonitionRanges(admonitionBlocks, lines, admonitionBackgroundRanges, admonitionGutterRanges);
 		applyDecorations(
 			document,
 			blockquoteDecoration,
 			blockquoteRanges,
 			tableDecoration,
 			tableRanges,
-			admonitionDecoration,
-			admonitionRanges,
+			tableHeaderDecoration,
+			tableHeaderRanges,
+			tableRowBorderDecoration,
+			tableRowBorderRanges,
+			tableFirstRowBorderDecoration,
+			tableFirstRowBorderRanges,
+			admonitionDecorations,
+			admonitionTitleRanges,
+			admonitionBackgroundRanges,
+			admonitionGutterRanges,
 		);
 	};
 
@@ -157,6 +277,11 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidSaveTextDocument(lint),
 		vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
 		vscode.window.onDidChangeVisibleTextEditors(() => lintActive()),
+		vscode.window.onDidChangeActiveColorTheme((theme) => {
+			admonitionDecorations.dispose();
+			admonitionDecorations = createAdmonitionDecorations(theme.kind);
+			lintActive();
+		}),
 	);
 }
 
@@ -189,8 +314,8 @@ function checkAdmonitionSyntax(
 		return;
 	}
 
-	const normalizedType = type.toLowerCase();
-	if (!ADMONITION_TYPES.has(normalizedType)) {
+	const normalizedType = normalizeAdmonitionType(type);
+	if (!ADMONITION_TYPES.has(normalizedType) && normalizedType !== 'danger') {
 		addDiagnostic(results, document, lineIndex, 0, line.length, `Unknown admonition type: "${type}".`, vscode.DiagnosticSeverity.Warning);
 	}
 
@@ -235,6 +360,10 @@ function checkListSpacing(
 	results: vscode.Diagnostic[],
 ): void {
 	const line = lines[lineIndex];
+	if (startsWithInlineEmphasis(line)) {
+		return;
+	}
+
 	if (isHorizontalRule(line) || isFrontmatterDelimiter(line) || isTableLineAt(lines, lineIndex)) {
 		return;
 	}
@@ -305,6 +434,37 @@ function checkTableSyntax(
 	}
 }
 
+function checkBlankLineBeforeList(
+	lines: string[],
+	lineIndex: number,
+	document: vscode.TextDocument,
+	results: vscode.Diagnostic[],
+): void {
+	const line = lines[lineIndex];
+	if (!isListLine(line)) {
+		return;
+	}
+
+	if (lineIndex === 0) {
+		return;
+	}
+
+	const prevLine = lines[lineIndex - 1];
+	if (prevLine.trim().length === 0) {
+		return;
+	}
+
+	if (isListLine(prevLine) || isBlockquoteLine(prevLine) || isTableLineAt(lines, lineIndex) || isAdmonitionHeader(prevLine)) {
+		return;
+	}
+
+	const range = new vscode.Range(
+		new vscode.Position(lineIndex, 0),
+		new vscode.Position(lineIndex, Math.min(1, line.length)),
+	);
+	results.push(new vscode.Diagnostic(range, 'List items should be preceded by a blank line in normal text.', vscode.DiagnosticSeverity.Error));
+}
+
 function checkIndentedBody(
 	lines: string[],
 	headerIndex: number,
@@ -332,6 +492,34 @@ function checkIndentedBody(
 		);
 		results.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
 	}
+}
+
+function checkBlankLineBeforeNonListAdmonitionContent(
+	lines: string[],
+	headerIndex: number,
+	document: vscode.TextDocument,
+	results: vscode.Diagnostic[],
+	message: string,
+): void {
+	const nextLineIndex = headerIndex + 1;
+	if (nextLineIndex >= lines.length) {
+		return;
+	}
+
+	if (lines[nextLineIndex].trim().length === 0) {
+		return;
+	}
+
+	const nextLine = lines[nextLineIndex];
+	if (isListLine(nextLine)) {
+		return;
+	}
+
+	const range = new vscode.Range(
+		new vscode.Position(nextLineIndex, 0),
+		new vscode.Position(nextLineIndex, Math.min(1, nextLine.length)),
+	);
+	results.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
 }
 
 function isHorizontalRule(line: string): boolean {
@@ -422,8 +610,16 @@ function applyDecorations(
 	blockquoteRanges: vscode.Range[],
 	tableDecoration: vscode.TextEditorDecorationType,
 	tableRanges: vscode.Range[],
-	admonitionDecoration: vscode.TextEditorDecorationType,
-	admonitionRanges: vscode.Range[],
+	tableHeaderDecoration: vscode.TextEditorDecorationType,
+	tableHeaderRanges: vscode.Range[],
+	tableRowBorderDecoration: vscode.TextEditorDecorationType,
+	tableRowBorderRanges: vscode.Range[],
+	tableFirstRowBorderDecoration: vscode.TextEditorDecorationType,
+	tableFirstRowBorderRanges: vscode.Range[],
+	admonitionDecorations: AdmonitionDecorations,
+	admonitionTitleRanges: AdmonitionRangeMap,
+	admonitionBackgroundRanges: AdmonitionRangeMap,
+	admonitionGutterRanges: AdmonitionGutterRangeMap,
 ): void {
 	for (const editor of vscode.window.visibleTextEditors) {
 		if (editor.document.uri.toString() !== document.uri.toString()) {
@@ -431,7 +627,17 @@ function applyDecorations(
 		}
 		editor.setDecorations(blockquoteDecoration, blockquoteRanges);
 		editor.setDecorations(tableDecoration, tableRanges);
-		editor.setDecorations(admonitionDecoration, admonitionRanges);
+		editor.setDecorations(tableHeaderDecoration, tableHeaderRanges);
+		editor.setDecorations(tableRowBorderDecoration, tableRowBorderRanges);
+		editor.setDecorations(tableFirstRowBorderDecoration, tableFirstRowBorderRanges);
+		for (const [type, decoration] of Object.entries(admonitionDecorations.byType)) {
+			editor.setDecorations(decoration.title, admonitionTitleRanges[type]);
+			editor.setDecorations(decoration.block, admonitionBackgroundRanges[type]);
+			const gutterRanges = admonitionGutterRanges[type];
+			for (let depth = 0; depth < decoration.gutter.length; depth += 1) {
+				editor.setDecorations(decoration.gutter[depth], gutterRanges[depth] ?? []);
+			}
+		}
 	}
 }
 
@@ -474,11 +680,32 @@ function isTableLineAt(lines: string[], lineIndex: number): boolean {
 	return false;
 }
 
+function isTableHeaderLine(lines: string[], lineIndex: number): boolean {
+	const line = lines[lineIndex];
+	if (!isTableRowLine(line) || isTableSeparatorLine(line)) {
+		return false;
+	}
+
+	const nextIndex = findNextNonEmptyLine(lines, lineIndex + 1);
+	if (nextIndex === null) {
+		return false;
+	}
+
+	return isTableSeparatorLine(lines[nextIndex]);
+}
+
 function isListLine(line: string): boolean {
 	return (
 		/^\s*[-+*]\s+/.test(line)
 		|| /^\s*\d+\.\s+/.test(line)
 		|| /^\s*[-+*]\s+\[[ xX]\]\s+/.test(line)
+	);
+}
+
+function startsWithInlineEmphasis(line: string): boolean {
+	return (
+		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
+		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
 	);
 }
 
@@ -530,4 +757,179 @@ function findAdmonitionBlockEnd(lines: string[], startIndex: number): number {
 		lastIndentedIndex = i;
 	}
 	return lastIndentedIndex;
+}
+
+type AdmonitionRangeMap = Record<string, vscode.Range[]>;
+
+type AdmonitionDecorations = {
+	byType: Record<string, { block: vscode.TextEditorDecorationType; title: vscode.TextEditorDecorationType; gutter: vscode.TextEditorDecorationType[] }>;
+	dispose: () => void;
+};
+
+type AdmonitionBlock = {
+	start: number;
+	end: number;
+	type: string;
+	indentWidth: number;
+	depth: number;
+};
+
+function createAdmonitionRangeMap(): AdmonitionRangeMap {
+	const types = ['note', 'abstract', 'info', 'tip', 'success', 'question', 'warning', 'danger', 'bug', 'example', 'quote', 'default'];
+	return Object.fromEntries(types.map((type) => [type, []]));
+}
+
+type AdmonitionGutterRangeMap = Record<string, vscode.Range[][]>;
+
+const MAX_ADMONITION_DEPTH = 4;
+
+function createAdmonitionGutterRangeMap(): AdmonitionGutterRangeMap {
+	const types = ['note', 'abstract', 'info', 'tip', 'success', 'question', 'warning', 'danger', 'bug', 'example', 'quote', 'default'];
+	return Object.fromEntries(
+		types.map((type) => [type, Array.from({ length: MAX_ADMONITION_DEPTH }, () => [])]),
+	);
+}
+
+function normalizeAdmonitionType(type: string): string {
+	const normalized = type.toLowerCase();
+	if (normalized === 'failure' || normalized === 'danger' || normalized === 'error') {
+		return 'danger';
+	}
+	if (normalized === 'note' || normalized === 'abstract' || normalized === 'info' || normalized === 'tip' || normalized === 'success'
+		|| normalized === 'question' || normalized === 'warning' || normalized === 'bug' || normalized === 'example' || normalized === 'quote') {
+		return normalized;
+	}
+	return 'default';
+}
+
+function getAdmonitionType(line: string): string {
+	const headerMatch = line.match(/^\s*(\!\!\!|\?\?\?\+|\?\?\?)\s*(.+)$/);
+	if (!headerMatch) {
+		return 'default';
+	}
+	const rest = headerMatch[2].trim();
+	if (!rest) {
+		return 'default';
+	}
+	return rest.split(/\s+/)[0];
+}
+
+function createAdmonitionDecorations(kind: vscode.ColorThemeKind): AdmonitionDecorations {
+	const palette = kind === vscode.ColorThemeKind.Dark ? {
+		note: { bg: '#1b2434', border: '#3a4c69', title: '#222d41' },
+		abstract: { bg: '#1d222b', border: '#3b4452', title: '#232938' },
+		info: { bg: '#1b2b2c', border: '#3a5b5e', title: '#223638' },
+		tip: { bg: '#1e2b23', border: '#3d5c43', title: '#26352c' },
+		success: { bg: '#1e2b29', border: '#3c5f57', title: '#253536' },
+		question: { bg: '#2f2a1c', border: '#6b5a2d', title: '#332a1c' },
+		warning: { bg: '#2b2418', border: '#6b542e', title: '#362d1f' },
+		danger: { bg: '#2f221e', border: '#6b4232', title: '#3a2a25' },
+		bug: { bg: '#2a1d1f', border: '#5c3535', title: '#352427' },
+		example: { bg: '#1f2635', border: '#3f4f6c', title: '#263043' },
+		quote: { bg: '#232323', border: '#424242', title: '#2b2b2b' },
+		default: { bg: '#20222a', border: '#3a3a3a', title: '#252525' },
+	} : {
+		note: { bg: '#eef3fb', border: '#c6d3e6', title: '#e3ecf8' },
+		abstract: { bg: '#f0f6ff', border: '#c9daf1', title: '#e6f0fb' },
+		info: { bg: '#eaf7f8', border: '#c7e1e5', title: '#def0f2' },
+		tip: { bg: '#eef7ef', border: '#cbe0cf', title: '#e2efe4' },
+		success: { bg: '#e9f6f2', border: '#c6ddd6', title: '#dfeee8' },
+		question: { bg: '#f6ead1', border: '#e1c48c', title: '#f3e5c7' },
+		warning: { bg: '#f9f1e4', border: '#e0cda9', title: '#f0e4d2' },
+		danger: { bg: '#f7ece7', border: '#e1b9ad', title: '#edd9d2' },
+		bug: { bg: '#f6e8e8', border: '#d8b2b2', title: '#eed6d6' },
+		example: { bg: '#edf0ff', border: '#cdd6f1', title: '#e2e7fb' },
+		quote: { bg: '#f2f2f2', border: '#d2d2d2', title: '#e6e6e6' },
+		default: { bg: '#f5f5f5', border: '#dcdcdc', title: '#eeeeee' },
+	};
+
+	const byType: AdmonitionDecorations['byType'] = {};
+	const disposables: vscode.TextEditorDecorationType[] = [];
+	for (const [type, colors] of Object.entries(palette)) {
+		const block = vscode.window.createTextEditorDecorationType({
+			isWholeLine: true,
+			backgroundColor: hexToRgba(colors.bg, 0.26),
+		});
+		const title = vscode.window.createTextEditorDecorationType({
+			isWholeLine: true,
+			backgroundColor: hexToRgba(colors.title, 0.36),
+			border: `1px solid ${colors.border}`,
+		});
+		const gutters = Array.from({ length: MAX_ADMONITION_DEPTH }, (_, depth) => {
+			const leftOffset = depth * 6;
+			return vscode.window.createTextEditorDecorationType({
+				isWholeLine: true,
+				before: {
+					contentText: ' ',
+					backgroundColor: colors.border,
+					margin: `0 10px 0 ${leftOffset}px`,
+					width: '4px',
+					height: '1em',
+				},
+			});
+		});
+		byType[type] = { block, title, gutter: gutters };
+		disposables.push(block, title, ...gutters);
+	}
+
+	return {
+		byType,
+		dispose: () => {
+			for (const decoration of disposables) {
+				decoration.dispose();
+			}
+		},
+	};
+}
+
+function buildAdmonitionRanges(
+	blocks: AdmonitionBlock[],
+	lines: string[],
+	backgroundMap: AdmonitionRangeMap,
+	gutterMap: AdmonitionGutterRangeMap,
+): void {
+	const sortedBlocks = [...blocks].sort((a, b) => a.start - b.start || a.end - b.end);
+	const stack: AdmonitionBlock[] = [];
+	for (const block of sortedBlocks) {
+		while (stack.length > 0 && block.start > stack[stack.length - 1].end) {
+			stack.pop();
+		}
+
+		let depth = 0;
+		for (let i = stack.length - 1; i >= 0; i -= 1) {
+			if (block.start <= stack[i].end && block.indentWidth > stack[i].indentWidth) {
+				depth = stack[i].depth + 1;
+				break;
+			}
+		}
+		block.depth = Math.min(depth, MAX_ADMONITION_DEPTH - 1);
+		stack.push(block);
+
+		for (let i = block.start; i <= block.end; i += 1) {
+			backgroundMap[block.type].push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lines[i].length)));
+			gutterMap[block.type][block.depth].push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lines[i].length)));
+		}
+	}
+}
+
+function getIndentWidth(line: string): number {
+	let width = 0;
+	for (const char of line) {
+		if (char === '\t') {
+			width += 4;
+		} else if (char === ' ') {
+			width += 1;
+		} else {
+			break;
+		}
+	}
+	return width;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+	const normalized = hex.replace('#', '');
+	const r = parseInt(normalized.slice(0, 2), 16);
+	const g = parseInt(normalized.slice(2, 4), 16);
+	const b = parseInt(normalized.slice(4, 6), 16);
+	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
