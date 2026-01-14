@@ -9,16 +9,23 @@
       "match": "^\\s*(!!!|\\?\\?\\?|\\?\\?\\?\\+)\\b"
     },
     {
-      "name": "mkdocs.frontmatter.delimiter",
-      "match": "^---\\s*$"
-    },
-    {
-      "name": "mkdocs.frontmatter.key",
-      "match": "^[A-Za-z0-9_-]+\\s*:(?=\\s|$)"
-    },
-    {
-      "name": "mkdocs.frontmatter.value",
-      "match": ":(?=\\s|$)\\s*[^#]+$"
+      "name": "mkdocs.frontmatter",
+      "begin": "^---\\s*$",
+      "end": "^---\\s*$|^\\.\\.\\.\\s*$",
+      "patterns": [
+        {
+          "name": "mkdocs.frontmatter.delimiter",
+          "match": "^---\\s*$|^\\.\\.\\.\\s*$"
+        },
+        {
+          "name": "mkdocs.frontmatter.key",
+          "match": "^[A-Za-z0-9_-]+\\s*:(?=\\s|$)"
+        },
+        {
+          "name": "mkdocs.frontmatter.value",
+          "match": ":(?=\\s|$)\\s*[^#]+$"
+        }
+      ]
     },
     {
       "name": "mkdocs.heading",
@@ -166,19 +173,27 @@
     },
     {
       "name": "mkdocs.math",
-      "match": "\\$\\$"
+      "begin": "^\\s*\\$\\$\\s*$",
+      "end": "^\\s*\\$\\$\\s*$",
+      "contentName": "mkdocs.math.content"
     },
     {
       "name": "mkdocs.math",
-      "match": "\\$[^\\$\\n]+\\$"
+      "begin": "\\$(?=\\S)",
+      "end": "\\$(?!\\$)",
+      "contentName": "mkdocs.math.content"
     },
     {
       "name": "mkdocs.math",
-      "match": "\\\\\\([^\\n]+?\\\\\\)"
+      "begin": "\\\\\\(",
+      "end": "\\\\\\)",
+      "contentName": "mkdocs.math.content"
     },
     {
       "name": "mkdocs.math",
-      "match": "\\\\\\[[^\\n]+?\\\\\\]"
+      "begin": "\\\\\\[",
+      "end": "\\\\\\]",
+      "contentName": "mkdocs.math.content"
     },
     {
       "name": "mkdocs.tooltip",

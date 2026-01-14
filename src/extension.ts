@@ -22,40 +22,28 @@ export function activate(context: vscode.ExtensionContext) {
 	const diagnostics = vscode.languages.createDiagnosticCollection('mkdocs-material-linter');
 	context.subscriptions.push(diagnostics);
 
-	const blockquoteDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		backgroundColor: 'rgba(229, 231, 235, 0.7)',
-	});
-	const tableDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		backgroundColor: 'rgba(255, 241, 230, 0.7)',
-	});
-	const tableHeaderDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		backgroundColor: 'rgba(249, 219, 186, 0.6)',
-		fontWeight: 'bold',
-	});
-	const tableRowBorderDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		borderStyle: 'solid',
-		borderColor: '#e0cda9',
-		borderWidth: '0 1px 1px 1px',
-	});
-	const tableFirstRowBorderDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		borderStyle: 'solid',
-		borderColor: '#e0cda9',
-		borderWidth: '1px 1px 1px 1px',
-	});
+	let blockquoteDecoration = createBlockquoteDecoration(vscode.window.activeColorTheme.kind);
+	let tableDecoration = createTableDecoration(vscode.window.activeColorTheme.kind);
+	let tableHeaderDecoration = createTableHeaderDecoration(vscode.window.activeColorTheme.kind);
+	let tableRowBorderDecoration = createTableRowBorderDecoration(vscode.window.activeColorTheme.kind);
+	let tableFirstRowBorderDecoration = createTableFirstRowBorderDecoration(vscode.window.activeColorTheme.kind);
+	let codeBlockDecoration = createCodeBlockDecoration(vscode.window.activeColorTheme.kind);
 	let admonitionDecorations = createAdmonitionDecorations(vscode.window.activeColorTheme.kind);
+	const blockquoteDisposable = new vscode.Disposable(() => blockquoteDecoration.dispose());
+	const tableDisposable = new vscode.Disposable(() => tableDecoration.dispose());
+	const tableHeaderDisposable = new vscode.Disposable(() => tableHeaderDecoration.dispose());
+	const tableRowBorderDisposable = new vscode.Disposable(() => tableRowBorderDecoration.dispose());
+	const tableFirstRowBorderDisposable = new vscode.Disposable(() => tableFirstRowBorderDecoration.dispose());
 	const admonitionDisposable = new vscode.Disposable(() => admonitionDecorations.dispose());
+	const codeBlockDisposable = new vscode.Disposable(() => codeBlockDecoration.dispose());
 	context.subscriptions.push(
-		blockquoteDecoration,
-		tableDecoration,
-		tableHeaderDecoration,
-		tableRowBorderDecoration,
-		tableFirstRowBorderDecoration,
+		blockquoteDisposable,
+		tableDisposable,
+		tableHeaderDisposable,
+		tableRowBorderDisposable,
+		tableFirstRowBorderDisposable,
 		admonitionDisposable,
+		codeBlockDisposable,
 	);
 
 	const underlineCommand = vscode.commands.registerCommand('mkdocs-material-linter.toggleUnderline', () => {
@@ -115,6 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const tableHeaderRanges: vscode.Range[] = [];
 		const tableRowBorderRanges: vscode.Range[] = [];
 		const tableFirstRowBorderRanges: vscode.Range[] = [];
+		const codeBlockRanges: vscode.Range[] = [];
 		const admonitionTitleRanges = createAdmonitionRangeMap();
 		const admonitionBackgroundRanges = createAdmonitionRangeMap();
 		const admonitionGutterRanges = createAdmonitionGutterRangeMap();
@@ -122,9 +111,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 		let inFence = false;
 		let fenceMarker = '';
+		let fenceStartLine = 0;
 		let inFrontmatter = false;
 
 		let inBlockquote = false;
+		let inMathBlock = false;
+		let mathStartLine = 0;
 		let inTable = false;
 		let tableStart = 0;
 		const tableBlocks: Array<{ start: number; end: number }> = [];
@@ -149,17 +141,31 @@ export function activate(context: vscode.ExtensionContext) {
 				if (!inFence) {
 					inFence = true;
 					fenceMarker = fenceMatch[1];
+					fenceStartLine = i;
+					codeBlockRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
 					continue;
 				}
 
 				if (line.trimStart().startsWith(fenceMarker)) {
 					inFence = false;
 					fenceMarker = '';
+					codeBlockRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
 				}
 				continue;
 			}
 
 			if (inFence) {
+				codeBlockRanges.push(new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, line.length)));
+				continue;
+			}
+
+			if (isMathBlockDelimiter(line)) {
+				if (!inMathBlock) {
+					inMathBlock = true;
+					mathStartLine = i;
+				} else {
+					inMathBlock = false;
+				}
 				continue;
 			}
 
@@ -242,6 +248,30 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}
 
+		if (inFence) {
+			addDiagnostic(
+				results,
+				document,
+				fenceStartLine,
+				0,
+				lines[fenceStartLine].length,
+				'Code fence must be closed.',
+				vscode.DiagnosticSeverity.Error,
+			);
+		}
+
+		if (inMathBlock) {
+			addDiagnostic(
+				results,
+				document,
+				mathStartLine,
+				0,
+				lines[mathStartLine].length,
+				'Math block must be closed with $$.',
+				vscode.DiagnosticSeverity.Error,
+			);
+		}
+
 		diagnostics.set(document.uri, results);
 		buildAdmonitionRanges(admonitionBlocks, lines, admonitionBackgroundRanges, admonitionGutterRanges);
 		applyDecorations(
@@ -256,6 +286,8 @@ export function activate(context: vscode.ExtensionContext) {
 			tableRowBorderRanges,
 			tableFirstRowBorderDecoration,
 			tableFirstRowBorderRanges,
+			codeBlockDecoration,
+			codeBlockRanges,
 			admonitionDecorations,
 			admonitionTitleRanges,
 			admonitionBackgroundRanges,
@@ -278,8 +310,20 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
 		vscode.window.onDidChangeVisibleTextEditors(() => lintActive()),
 		vscode.window.onDidChangeActiveColorTheme((theme) => {
+			blockquoteDecoration.dispose();
+			tableDecoration.dispose();
+			tableHeaderDecoration.dispose();
+			tableRowBorderDecoration.dispose();
+			tableFirstRowBorderDecoration.dispose();
 			admonitionDecorations.dispose();
+			blockquoteDecoration = createBlockquoteDecoration(theme.kind);
+			tableDecoration = createTableDecoration(theme.kind);
+			tableHeaderDecoration = createTableHeaderDecoration(theme.kind);
+			tableRowBorderDecoration = createTableRowBorderDecoration(theme.kind);
+			tableFirstRowBorderDecoration = createTableFirstRowBorderDecoration(theme.kind);
 			admonitionDecorations = createAdmonitionDecorations(theme.kind);
+			codeBlockDecoration.dispose();
+			codeBlockDecoration = createCodeBlockDecoration(theme.kind);
 			lintActive();
 		}),
 	);
@@ -616,6 +660,8 @@ function applyDecorations(
 	tableRowBorderRanges: vscode.Range[],
 	tableFirstRowBorderDecoration: vscode.TextEditorDecorationType,
 	tableFirstRowBorderRanges: vscode.Range[],
+	codeBlockDecoration: vscode.TextEditorDecorationType,
+	codeBlockRanges: vscode.Range[],
 	admonitionDecorations: AdmonitionDecorations,
 	admonitionTitleRanges: AdmonitionRangeMap,
 	admonitionBackgroundRanges: AdmonitionRangeMap,
@@ -630,6 +676,7 @@ function applyDecorations(
 		editor.setDecorations(tableHeaderDecoration, tableHeaderRanges);
 		editor.setDecorations(tableRowBorderDecoration, tableRowBorderRanges);
 		editor.setDecorations(tableFirstRowBorderDecoration, tableFirstRowBorderRanges);
+		editor.setDecorations(codeBlockDecoration, codeBlockRanges);
 		for (const [type, decoration] of Object.entries(admonitionDecorations.byType)) {
 			editor.setDecorations(decoration.title, admonitionTitleRanges[type]);
 			editor.setDecorations(decoration.block, admonitionBackgroundRanges[type]);
@@ -692,6 +739,72 @@ function isTableHeaderLine(lines: string[], lineIndex: number): boolean {
 	}
 
 	return isTableSeparatorLine(lines[nextIndex]);
+}
+
+function isMathBlockDelimiter(line: string): boolean {
+	return /^\s*\$\$\s*$/.test(line);
+}
+
+function createCodeBlockDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const backgroundColor = kind === vscode.ColorThemeKind.Dark
+		? 'rgba(11, 18, 32, 0.5)'
+		: 'rgba(15, 23, 42, 0.5)';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		backgroundColor,
+		color: '#86EFAC',
+	});
+}
+
+function createBlockquoteDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const backgroundColor = kind === vscode.ColorThemeKind.Dark
+		? 'rgba(42, 47, 56, 0.45)'
+		: 'rgba(229, 231, 235, 0.7)';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		backgroundColor,
+	});
+}
+
+function createTableDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const backgroundColor = kind === vscode.ColorThemeKind.Dark
+		? 'rgba(58, 45, 36, 0.45)'
+		: 'rgba(255, 241, 230, 0.7)';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		backgroundColor,
+	});
+}
+
+function createTableHeaderDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const backgroundColor = kind === vscode.ColorThemeKind.Dark
+		? 'rgba(79, 60, 46, 0.6)'
+		: 'rgba(249, 219, 186, 0.6)';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		backgroundColor,
+		fontWeight: 'bold',
+	});
+}
+
+function createTableRowBorderDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const borderColor = kind === vscode.ColorThemeKind.Dark ? '#5a4a3e' : '#e0cda9';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		borderStyle: 'solid',
+		borderColor,
+		borderWidth: '0 1px 1px 1px',
+	});
+}
+
+function createTableFirstRowBorderDecoration(kind: vscode.ColorThemeKind): vscode.TextEditorDecorationType {
+	const borderColor = kind === vscode.ColorThemeKind.Dark ? '#5a4a3e' : '#e0cda9';
+	return vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		borderStyle: 'solid',
+		borderColor,
+		borderWidth: '1px 1px 1px 1px',
+	});
 }
 
 function isListLine(line: string): boolean {

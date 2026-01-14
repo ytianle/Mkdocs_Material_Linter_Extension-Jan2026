@@ -1,87 +1,131 @@
-# Mkdocs Material Linter
+# MkDocs Material Linter
 
-Markdown lints for MkDocs Material in VS Code. It highlights common syntax mistakes and inconsistent patterns for MkDocs Material blocks.
+A VS Code extension tailored for **MkDocs Material**:
+- Flags common syntax mistakes in the Problems panel
+- Adds clearer visual cues for blocks, tables, and inline features
+- Ships with built‑in light/dark themes for best results
 
-## What it checks
+## 1. Who It’s For
 
-- Admonition markers can be written with or without a space: `!!! note` or `!!!note`, `??? tip` or `???tip`, `???+ question` or `???+question`
-- Admonition type is required after the marker
-- Admonition type must be a simple identifier (letters, numbers, `_`, `-`)
-- Unknown admonition types are flagged as warnings
-- Admonition titles must have closed quotes if a quote is used
-- Admonition content must be indented by 4 spaces or a tab (relative to the admonition line)
-- Admonition content must start after a blank line unless the first content line is a list
-- Tabs must be written as `=== "Title"` or `=== 'Title'`
-- Tab titles must use matching quotes
-- Tab content must be indented by 4 spaces or a tab (relative to the tab line)
-- Table header must be followed by a separator row, and column counts must match
-- Unordered list markers must be followed by a space
-- Ordered list markers must be followed by a space
-- Task list checkboxes must be followed by a space
-- Lists in normal text should be preceded by a blank line
+If you write MkDocs Material docs (admonitions, content tabs, tables, task lists, etc.), this helps you catch issues early and keep docs readable.
 
-## Syntax highlighting
+## 2. Best Practices 
+1) Heading styles  
+![headings](images/headings.png)
 
-This extension ships a color theme named `MkDocs Material Linter`. Select it in
-VS Code to see module-specific colors.
+2) Admonition highlight  
+![admonition](images/admonition.png)
 
-- Admonitions: orange
-- Annotations: sky blue
-- Buttons: green
-- Code blocks (fence lines): slate
-- Content tabs: violet
-- Data tables: orange-red with light background
-- Diagrams (mermaid fences): cyan
-- Footnotes: purple
-- Formatting (critic markup, highlights, keys): pink
-- Grids: lime
-- Icons & emojis: amber
-- Images: emerald
-- Lists: blue
-- Math: red
-- Tooltips: teal
-- Front matter (`---` with YAML keys/values): teal
-- Headings (`#` through `######`): bold blue
-- Blockquotes (`>` lines): gray background
-- Tables: light background (via editor decorations)
-- Table headers: darker background + bold (via editor decorations)
-- Tables: outer border + row separators (via editor decorations)
-- Admonitions: type-specific narrow color bars with subtle background (nested blocks show multiple bars)
-- Inline emphasis (`*italic*`, `**bold**`, `***bold italic***`): styled
+3) Nested admonition bars  
+![nested-admonition](images/nested-admonition.png)
 
-## Examples
+4) Tables (border + header)  
+![tables](images/tables.png)
 
+5) Tabs syntax  
+![tabs](images/tabs.png)
+
+6) Diagnostics in Problems panel  
+![diagnostics](images/diagnostics.png)
+
+7) Math blocks  
+![math](images/math.png)
+
+8) Blockquotes  
+![blockquotes](images/blockquotes.png)
+
+9) Code blocks  
+![code-blocks](images/code-blocks.png)
+
+10) Front matter (`---`)  
+![front-matter](images/front-matter.png)
+
+11) Images  
+![images](images/images.png)
+
+12) Icons & emojis  
+![icons-emojis](images/icons-emojis.png)
+
+13) Footnotes & tooltips  
+![footnotes-tooltips](images/footnotes-tooltips.png)
+
+## 3. Themes
+
+Two built-in themes are provided for best highlighting:
+- `MkDocs Material Linter (Light)`
+  ![light-theme](images/light-theme.png)
+- `MkDocs Material Linter (Dark)`
+  ![dark-theme](images/dark-theme.png)
+
+`VS Code` → `Preferences` → `Color Theme` → `select one of the above`.  
+You can also use diagnostics without switching themes.
+
+## 4. Theory about What It Does
+
+We highly recommend using the provided themes to get the full benefit of the extension, but diagnostics will work regardless of theme.
+
+### 4.1 Diagnostics (Errors/Warnings)
+| Area | Rule | Example |
+| --- | --- | --- |
+| Admonition | marker must have a type | `!!! note`, `???+ question` |
+| Admonition | type must be a simple identifier | letters/numbers/`_`/`-` |
+| Admonition | unknown type → warning | `!!! foo` |
+| Admonition | title quotes must close | `!!! note "Title"` |
+| Admonition | content must be indented | 4 spaces or 1 tab |
+| Admonition | blank line before non‑list content | list can follow immediately |
+| Tabs | must be `=== "Title"` or `=== 'Title'` | quotes required |
+| Tabs | content must be indented | 4 spaces or 1 tab |
+| Lists | marker must be followed by a space | `- item`, `1. item` |
+| Lists | blank line before a list in normal text | avoids `-item` look |
+| Tables | header must be followed by separator | `| --- |` |
+| Tables | separator column count must match header | consistent columns |
+| Code blocks | fence must be closed | ``` / ~~~ |
+| Math | `$$` blocks must be closed | `$$ ... $$` |
+
+### 4.2 Visual Cues
+- Admonitions: narrow color bars + subtle background (nested blocks show multiple bars)
+- Tables: soft background + stronger header + outer border + row separators
+- Headings, blockquotes, icons/emojis, math, footnotes, etc. are more distinct
+- Code blocks: dark background with light text for readability
+
+## 5. Supported Files
+
+- Markdown (`.md`)
+- MDX (`.mdx`)
+
+## 6. Additional Shortcuts
+
+VS Code doesn't have built-in shortcuts for some of the rich text format shortcuts MkDocs Material supports. Here are some useful ones:
+
+- Underline (MkDocs `^^underline^^`): `Ctrl+U` / `Cmd+U`
+
+## 7. Quick Diagnose
+
+## 7.1 Correct
 ```md
 !!! note "Title"
     This is valid.
 
 ???+ question "FAQ"
-    This is valid.
+    - First item
+    - Second item
 
 === "Tab A"
     Tab content.
+
+| Method | Description |
+| --- | --- |
+| GET | Fetch |
 ```
 
+### 7.2 Common Mistakes
 ```md
 !!!note
 Text not indented.
-
-???+question
-    Missing space after marker.
 
 === Tab A
     Missing quotes.
 
 -item
 1.item
-- [x]Done
 ```
-
-## Supported files
-
-- Markdown (`.md`)
-- MDX (`.mdx`)
-
-## Editor shortcuts
-
-- Toggle underline (MkDocs `^^underline^^`): `Ctrl+U` / `Cmd+U`
