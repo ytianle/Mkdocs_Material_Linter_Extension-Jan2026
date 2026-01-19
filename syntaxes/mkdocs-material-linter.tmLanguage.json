@@ -2,8 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "MkDocs Material Linter",
   "scopeName": "mkdocs-material-linter.markdown",
-  "injectionSelector": "text.html.markdown - markup.code.block.markdown - markup.fenced_code.block.markdown",
+  "injectionSelector": "text.html.markdown - markup.code.block.markdown - markup.fenced_code.block.markdown - markup.raw.block.markdown - markup.raw.inline.markdown - markup.inline.raw.markdown",
   "patterns": [
+    {
+      "name": "mkdocs.code.fence.block",
+      "begin": "^\\s*(```+|~~~+).*$",
+      "end": "^\\s*\\1\\s*$",
+      "patterns": []
+    },
     {
       "name": "mkdocs.admonition.marker",
       "match": "^\\s*(!!!|\\?\\?\\?|\\?\\?\\?\\+)\\b"

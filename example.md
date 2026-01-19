@@ -15,6 +15,12 @@ icon: material/check
     - Does `committing` equal `patching`?
     - What is `rebase` essentially?
 
+> How to compile vs code extension?
+> 1. npm install
+> 2. npm run compile
+> 3. F5 to launch extension host
+> 4. Open markdown file to see highlights
+
 ## Admonitions
 
 !!! note "Plain note"
@@ -58,6 +64,11 @@ icon: material/check
     === "Subtab A1"
     
         Subtab content.
+
+        ```Bash
+        eval $(ssh-agent -s)
+        ssh-add ~/.ssh/id_rsa
+        ```     
 
     === "Subtab A2"
         Another subtab content.
