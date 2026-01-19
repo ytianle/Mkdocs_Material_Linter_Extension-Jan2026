@@ -1,13 +1,23 @@
-# MkDocs Material Linter
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="MkDocs Material Linter logo">
+</p>
+<h1 align="center">MkDocs Material Linter</h1>
+<p align="center">A VS Code extension tailored for MkDocs Material</p>
 
-A VS Code extension tailored for **MkDocs Material**:
+---
+
+## Features:
 - Flags common syntax mistakes in the Problems panel
 - Adds clearer visual cues for blocks, tables, and inline features
 - Ships with built‑in light/dark themes for best results
 
+---
+
 ## 1. Who It’s For
 
 If you write MkDocs Material docs (admonitions, content tabs, tables, task lists, etc.), this helps you catch issues early and keep docs readable.
+
+---
 
 ## 2. Best Practices 
 1) Heading styles  
@@ -49,6 +59,8 @@ If you write MkDocs Material docs (admonitions, content tabs, tables, task lists
 13) Footnotes & tooltips  
 ![footnotes-tooltips](images/footnotes-tooltips.png)
 
+---
+
 ## 3. Themes
 
 Two built-in themes are provided for best highlighting:
@@ -59,6 +71,8 @@ Two built-in themes are provided for best highlighting:
 
 `VS Code` → `Preferences` → `Color Theme` → `select one of the above`.  
 You can also use diagnostics without switching themes.
+
+---
 
 ## 4. Theory about What It Does
 
@@ -88,16 +102,22 @@ We highly recommend using the provided themes to get the full benefit of the ext
 - Headings, blockquotes, icons/emojis, math, footnotes, etc. are more distinct
 - Code blocks: dark background with light text for readability
 
+---
+
 ## 5. Supported Files
 
 - Markdown (`.md`)
 - MDX (`.mdx`)
+
+---
 
 ## 6. Additional Shortcuts
 
 VS Code doesn't have built-in shortcuts for some of the rich text format shortcuts MkDocs Material supports. Here are some useful ones:
 
 - Underline (MkDocs `^^underline^^`): `Ctrl+U` / `Cmd+U`
+
+---
 
 ## 7. Quick Diagnose
 
