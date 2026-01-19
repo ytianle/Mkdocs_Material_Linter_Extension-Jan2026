@@ -15,17 +15,20 @@ icon: material/check
     - Does `committing` equal `patching`?
     - What is `rebase` essentially?
 
-> How to compile vs code extension?
-> 1. npm install
-> 2. npm run compile
-> 3. F5 to launch extension host
-> 4. Open markdown file to see highlights
-
 ## Admonitions
 
-!!! note "Plain note"
+!!! note "How to compile vs code extension?"
     
-    This is a simple admonition.
+    1. Run `npm install` to install dependencies.
+    2. Run `npm run compile` to compile the TypeScript code.
+    3. Press `F5` in VS Code to launch a new Extension Development Host
+    4. Open a markdown file and see the linter in action!
+
+??? tip "How to publish vs code extension?"
+    
+    - Adjust the version number in `package.json`.
+    - Run `vsce package` to create a `.vsix` file.
+    - Run `vsce publish` to publish the extension to the marketplace.
 
 ???+ warning "Nested example"
     - List item 1

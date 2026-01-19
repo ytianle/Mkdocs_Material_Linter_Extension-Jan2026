@@ -3,7 +3,7 @@
   "displayName": "Mkdocs Material Linter",
   "description": "A VS Code linter and highlighter for MkDocs Material syntax (admonitions, tabs, tables, and more).",
   "publisher": "ytianle",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "engines": {
     "vscode": "^1.108.0"
   },
