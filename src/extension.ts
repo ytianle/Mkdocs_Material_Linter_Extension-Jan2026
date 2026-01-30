@@ -92,11 +92,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(underlineCommand);
 
 	const lint = (document: vscode.TextDocument) => {
+		const text = document.getText();
 		if (!isMarkdownDocument(document)) {
 			return;
 		}
-
-		const lines = document.getText().split(/\r?\n/);
+		const lines = text.split(/\r?\n/);
 		const results: vscode.Diagnostic[] = [];
 		const blockquoteRanges: vscode.Range[] = [];
 		const tableRanges: vscode.Range[] = [];
@@ -182,7 +182,7 @@ export function activate(context: vscode.ExtensionContext) {
 					document,
 					results,
 					'Admonition content must be indented by 4 spaces or a tab.',
-					null,
+					LIST_LINE_REGEX,
 				);
 				checkBlankLineBeforeNonListAdmonitionContent(
 					lines,
@@ -332,7 +332,10 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {}
 
 function isMarkdownDocument(document: vscode.TextDocument): boolean {
-	return document.languageId === 'markdown' || document.languageId === 'mdx';
+	const languageId = document.languageId.toLowerCase();
+	return languageId === 'markdown'
+		|| languageId === 'mdx'
+		|| languageId === 'markdownreact';
 }
 
 function checkAdmonitionSyntax(
@@ -585,6 +588,8 @@ function isAdmonitionHeader(line: string): boolean {
 function isTabHeader(line: string): boolean {
 	return /^\s*===\s+/.test(line);
 }
+
+const LIST_LINE_REGEX = /^\s*(?:[-+*]\s+|\d+\.\s+|[-+*]\s+\[[ xX]\]\s+)/;
 
 function findNextNonEmptyLine(lines: string[], startIndex: number): number | null {
 	for (let i = startIndex; i < lines.length; i += 1) {
@@ -841,7 +846,10 @@ function isTableRowLine(line: string): boolean {
 }
 
 function isTableSeparatorLine(line: string): boolean {
-	return /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)+\|?\s*$/.test(line);
+	if (!line.includes('|')) {
+		return false;
+	}
+	return /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/.test(line);
 }
 
 function countTableColumns(line: string): number {
