@@ -3,7 +3,7 @@
   "displayName": "Mkdocs Material Linter",
   "description": "A VS Code linter and highlighter for MkDocs Material syntax (admonitions, tabs, tables, and more).",
   "publisher": "ytianle",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "engines": {
     "vscode": "^1.108.0"
   },
@@ -21,6 +21,17 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "mdx",
+        "aliases": [
+          "MDX"
+        ],
+        "extensions": [
+          ".mdx"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "mkdocs-material-linter.toggleUnderline",
@@ -63,7 +74,27 @@
         "uiTheme": "vs-dark",
         "path": "./themes/mkdocs-material-linter-color-theme-dark.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "MkDocs Material Linter",
+      "properties": {
+        "mkdocs-material-linter.checkBlankLineBeforeList": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check that lists are preceded by a blank line in normal text."
+        },
+        "mkdocs-material-linter.checkBlankLineBeforeAdmonitionContent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Check that admonition content starts after a blank line (unless it's a list)."
+        },
+        "mkdocs-material-linter.checkIndentation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check that admonition and tab content is properly indented."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

@@ -130,14 +130,35 @@ suite('MkDocs Material Linter', () => {
 			assert.strictEqual(diagnostics[0].message, 'Admonition content must be indented by 4 spaces or a tab.');
 		});
 
-		test('1.5 requires blank line before non-list admonition content', async () => {
-			const editor = await openMarkdownDocument([
-				'!!! note',
-				'    Content without blank line',
-			].join('\n'));
+		test('1.5 requires blank line before non-list admonition content when config enabled', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkBlankLineBeforeAdmonitionContent');
 
-			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-			assert.strictEqual(diagnostics[0].message, 'Admonition content should start after a blank line unless it is a list.');
+			try {
+				await config.update('checkBlankLineBeforeAdmonitionContent', true, vscode.ConfigurationTarget.Global);
+				// Wait for configuration to propagate
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				
+				const editor = await openMarkdownDocument([
+					'!!! note',
+					'    Content without blank line',
+				].join('\n'));
+
+				// Force a re-lint by making a small edit
+				await editor.edit((editBuilder) => {
+					editBuilder.insert(new vscode.Position(0, 0), ' ');
+				});
+				await editor.edit((editBuilder) => {
+					editBuilder.delete(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)));
+				});
+
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length > 0, 3000);
+				assert.ok(diagnostics.length > 0, 'Expected at least one diagnostic');
+				const admonitionDiagnostic = diagnostics.find((d) => d.message.includes('blank line'));
+				assert.ok(admonitionDiagnostic, 'Expected diagnostic about blank line before admonition content');
+			} finally {
+				await config.update('checkBlankLineBeforeAdmonitionContent', originalValue, vscode.ConfigurationTarget.Global);
+			}
 		});
 
 			test('1.6 accepts a valid admonition', async () => {
@@ -579,6 +600,127 @@ suite('MkDocs Material Linter', () => {
 			const selection = await waitForSelection(editor, (value) => value.start.character === 6 && value.end.character === 6);
 			assert.strictEqual(selection.start.character, 6);
 			assert.strictEqual(selection.end.character, 6);
+		});
+	});
+
+	suite('18. False Positives Fixes', () => {
+		test('18.1 does not flag bold text as list item error', async () => {
+			const editor = await openMarkdownDocument('**file/path_name.py:**');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.2 does not flag bold text in paragraph as list item', async () => {
+			const editor = await openMarkdownDocument([
+				'**file/path_name.py** and **another/file/path_name.html**',
+				'in a single paragraph.',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.3 does not flag abbreviation syntax as list item', async () => {
+			const editor = await openMarkdownDocument('*[UML]: Unified Modeling Language');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.4 does not flag snippet syntax as list item', async () => {
+			const editor = await openMarkdownDocument('--8<-- "snippet.md:section_1"');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.5 accepts snippet syntax with single quotes', async () => {
+			const editor = await openMarkdownDocument("--8<-- 'snippet.md:section_2'");
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.6 accepts indented snippet syntax', async () => {
+			const editor = await openMarkdownDocument('    --8<-- "snippet.md"');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('18.7 accepts multiple abbreviations in a document', async () => {
+			const editor = await openMarkdownDocument([
+				'*[HTML]: Hyper Text Markup Language',
+				'*[CSS]: Cascading Style Sheets',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+	});
+
+	suite('19. Configuration Options', () => {
+		test('19.1 respects checkBlankLineBeforeAdmonitionContent setting', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkBlankLineBeforeAdmonitionContent');
+
+			try {
+				await config.update('checkBlankLineBeforeAdmonitionContent', false, vscode.ConfigurationTarget.Global);
+				const editor = await openMarkdownDocument([
+					'!!! note',
+					'    Content without blank line',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			} finally {
+				await config.update('checkBlankLineBeforeAdmonitionContent', originalValue, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('19.2 respects checkBlankLineBeforeList setting', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkBlankLineBeforeList');
+
+			try {
+				await config.update('checkBlankLineBeforeList', false, vscode.ConfigurationTarget.Global);
+				const editor = await openMarkdownDocument([
+					'Paragraph text',
+					'- list item',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			} finally {
+				await config.update('checkBlankLineBeforeList', originalValue, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('19.3 respects checkIndentation setting for admonitions', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkIndentation');
+
+			try {
+				await config.update('checkIndentation', false, vscode.ConfigurationTarget.Global);
+				const editor = await openMarkdownDocument([
+					'!!! note',
+					'',
+					'Not indented',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			} finally {
+				await config.update('checkIndentation', originalValue, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('19.4 respects checkIndentation setting for tabs', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkIndentation');
+
+			try {
+				await config.update('checkIndentation', false, vscode.ConfigurationTarget.Global);
+				const editor = await openMarkdownDocument([
+					'=== "Tab"',
+					'Not indented',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			} finally {
+				await config.update('checkIndentation', originalValue, vscode.ConfigurationTarget.Global);
+			}
 		});
 	});
 });

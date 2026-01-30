@@ -176,21 +176,29 @@ export function activate(context: vscode.ExtensionContext) {
 			checkBlankLineBeforeList(lines, i, document, results);
 
 			if (isAdmonitionHeader(line)) {
-				checkIndentedBody(
-					lines,
-					i,
-					document,
-					results,
-					'Admonition content must be indented by 4 spaces or a tab.',
-					LIST_LINE_REGEX,
-				);
-				checkBlankLineBeforeNonListAdmonitionContent(
-					lines,
-					i,
-					document,
-					results,
-					'Admonition content should start after a blank line unless it is a list.',
-				);
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const checkIndentation = config.get<boolean>('checkIndentation', true);
+				const checkBlankLine = config.get<boolean>('checkBlankLineBeforeAdmonitionContent', false);
+
+				if (checkIndentation) {
+					checkIndentedBody(
+						lines,
+						i,
+						document,
+						results,
+						'Admonition content must be indented by 4 spaces or a tab.',
+						LIST_LINE_REGEX,
+					);
+				}
+				if (checkBlankLine) {
+					checkBlankLineBeforeNonListAdmonitionContent(
+						lines,
+						i,
+						document,
+						results,
+						'Admonition content should start after a blank line unless it is a list.',
+					);
+				}
 				const admonitionType = getAdmonitionType(line);
 				const styleKey = normalizeAdmonitionType(admonitionType);
 				const endIndex = findAdmonitionBlockEnd(lines, i);
@@ -200,14 +208,19 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			if (isTabHeader(line)) {
-				checkIndentedBody(
-					lines,
-					i,
-					document,
-					results,
-					'Tab content must be indented by 4 spaces or a tab.',
-					/^\s*===\s+/,
-				);
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const checkIndentation = config.get<boolean>('checkIndentation', true);
+
+				if (checkIndentation) {
+					checkIndentedBody(
+						lines,
+						i,
+						document,
+						results,
+						'Tab content must be indented by 4 spaces or a tab.',
+						/^\s*===\s+/,
+					);
+				}
 			}
 
 			if (isBlockquoteLine(line)) {
@@ -411,6 +424,16 @@ function checkListSpacing(
 		return;
 	}
 
+	// Skip abbreviation syntax: *[ABBR]: definition
+	if (isAbbreviationDefinition(line)) {
+		return;
+	}
+
+	// Skip snippet syntax: --8<-- "file.md"
+	if (isSnippetSyntax(line)) {
+		return;
+	}
+
 	if (isHorizontalRule(line) || isFrontmatterDelimiter(line) || isTableLineAt(lines, lineIndex)) {
 		return;
 	}
@@ -487,6 +510,13 @@ function checkBlankLineBeforeList(
 	document: vscode.TextDocument,
 	results: vscode.Diagnostic[],
 ): void {
+	const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+	const checkBlankLineBeforeList = config.get<boolean>('checkBlankLineBeforeList', true);
+
+	if (!checkBlankLineBeforeList) {
+		return;
+	}
+
 	const line = lines[lineIndex];
 	if (!isListLine(line)) {
 		return;
@@ -812,7 +842,27 @@ function createTableFirstRowBorderDecoration(kind: vscode.ColorThemeKind): vscod
 	});
 }
 
+// Check if line is an abbreviation definition: *[ABBR]: Full text
+function isAbbreviationDefinition(line: string): boolean {
+	return /^\s*\*\[[^\]]+\]:\s+.+/.test(line);
+}
+
+// Check if line is a snippet include: --8<-- "file.md" or --8<-- "file.md:section"
+function isSnippetSyntax(line: string): boolean {
+	return /^\s*--8<--\s+["'][^"']+["']/.test(line);
+}
+
 function isListLine(line: string): boolean {
+	// Skip abbreviation syntax
+	if (isAbbreviationDefinition(line)) {
+		return false;
+	}
+
+	// Skip snippet syntax
+	if (isSnippetSyntax(line)) {
+		return false;
+	}
+
 	return (
 		/^\s*[-+*]\s+/.test(line)
 		|| /^\s*\d+\.\s+/.test(line)
@@ -821,9 +871,13 @@ function isListLine(line: string): boolean {
 }
 
 function startsWithInlineEmphasis(line: string): boolean {
+	// Check for bold: **text** or __text__
+	// Check for italic: *text* or _text_
+	// Also check for bold in middle of line followed by text like: **file/path_name.py**
 	return (
 		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
 		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
+		|| /^\s*\*\*[^*\s][^*]*\*\*/.test(line)
 	);
 }
 
