@@ -18,7 +18,8 @@ All notable changes to this project will be documented in this file.
 - False positive: Bold text (e.g., `**file/path_name.py**`) no longer incorrectly flagged as list item error
 - False positive: Abbreviation definitions no longer flagged as list item errors
 - False positive: Snippet includes no longer flagged as list item errors
-- False positive: Empty admonitions (title-only) no longer cause indentation errors
+- False positive: Empty admonitions (title-only) no longer cause indentation errors on following unindented content
+- False positive: Unindented bold/italic text after empty admonitions now correctly exempted
 - Improved inline emphasis detection to handle more edge cases
 - **Critical parsing error detection**: Paragraph followed directly by list now always reports an error (causes Markdown parsing failure) regardless of `checkBlankLineBeforeList` setting
 

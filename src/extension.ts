@@ -606,16 +606,15 @@ function checkIndentedBody(
 		return;
 	}
 
-	// If next line starts at column 0 (no indentation at all), it's not part of this block
-	const nextLineIndent = getLeadingWhitespace(nextLine);
-	if (nextLineIndent.length === 0) {
-		return;
-	}
-
 	// Skip if next line is a block-level element (heading, admonition, tab, horizontal rule, etc.)
-	if (isAdmonitionHeader(nextLine) || isTabHeader(nextLine) || 
-		/^\s*#{1,6}\s+/.test(nextLine) || isHorizontalRule(nextLine) ||
-		startsWithInlineEmphasis(nextLine)) {
+	// OR if it has no indentation AND is bold/italic text (like **Expected**: after empty admonition)
+	const isBlockLevel = isAdmonitionHeader(nextLine) || isTabHeader(nextLine) || 
+		/^\s*#{1,6}\s+/.test(nextLine) || isHorizontalRule(nextLine);
+	
+	const nextLineIndent = getLeadingWhitespace(nextLine);
+	const isUnindentedInlineEmphasis = nextLineIndent.length === 0 && startsWithInlineEmphasis(nextLine);
+	
+	if (isBlockLevel || isUnindentedInlineEmphasis) {
 		return;
 	}
 
