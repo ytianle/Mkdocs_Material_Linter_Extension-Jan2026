@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2026-01-30
+
+- Fixed: Blank line before list logic to ensure parsing errors are always reported regardless of configuration.
+
+## [1.2.1] - 2026-01-30
+
+- Fixed: Configuration options were not being applied correctly due to a bug in settings retrieval.
+
 ## [1.2.0] - 2026-01-30
 
 ### Added

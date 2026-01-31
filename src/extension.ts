@@ -538,6 +538,10 @@ function checkBlankLineBeforeList(
 	const isHR = isHorizontalRule(prevLine);
 	const isFenceClosing = prevLine.trim().startsWith('```') || prevLine.trim().startsWith('~~~');
 	
+	// Check if previous line is a list continuation line (indented content belonging to a list item)
+	// Continuation lines start with whitespace but are not list markers themselves
+	const isListContinuation = /^\s+/.test(prevLine) && !isListLine(prevLine) && prevLine.trim().length > 0;
+	
 	// Critical: paragraph followed by list will cause parsing failure
 	// This is always an error regardless of configuration
 	const isParagraphLine = prevLine.trim().length > 0 && 
@@ -547,7 +551,8 @@ function checkBlankLineBeforeList(
 		!isTabHeader(prevLine) &&
 		!isHeading &&
 		!isHR &&
-		!isFenceClosing;
+		!isFenceClosing &&
+		!isListContinuation;
 
 	if (isParagraphLine) {
 		// This is a critical parsing error - always report
