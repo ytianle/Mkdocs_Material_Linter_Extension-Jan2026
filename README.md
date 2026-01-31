@@ -97,15 +97,34 @@ We highly recommend using the provided themes to get the full benefit of the ext
 - Markdown (`.md`)
 - MDX (`.mdx`)
 
-## 6. Additional Shortcuts
+## 6. Configuration
+
+You can customize the linter behavior in VS Code settings:
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `checkBlankLineBeforeList` | `true` | Require blank line before lists in normal text |
+| `checkBlankLineBeforeAdmonitionContent` | `false` | Require blank line before admonition content (except lists) |
+| `checkIndentation` | `true` | Check indentation for admonitions and tabs |
+
+**Example** (`settings.json`):
+```json
+{
+  "mkdocs-material-linter.checkBlankLineBeforeList": true,
+  "mkdocs-material-linter.checkBlankLineBeforeAdmonitionContent": false,
+  "mkdocs-material-linter.checkIndentation": true
+}
+```
+
+## 7. Additional Shortcuts
 
 VS Code doesn't have built-in shortcuts for some of the rich text format shortcuts MkDocs Material supports. Here are some useful ones:
 
 - Underline (MkDocs `^^underline^^`): `Ctrl+U` / `Cmd+U`
 
-## 7. Quick Diagnose
+## 8. Quick Diagnose
 
-## 7.1 Correct
+## 8.1 Correct
 ```md
 !!! note "Title"
     This is valid.
@@ -122,7 +141,7 @@ VS Code doesn't have built-in shortcuts for some of the rich text format shortcu
 | GET | Fetch |
 ```
 
-### 7.2 Common Mistakes
+### 8.2 Common Mistakes
 ```md
 !!!note
 Text not indented.

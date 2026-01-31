@@ -176,21 +176,29 @@ export function activate(context: vscode.ExtensionContext) {
 			checkBlankLineBeforeList(lines, i, document, results);
 
 			if (isAdmonitionHeader(line)) {
-				checkIndentedBody(
-					lines,
-					i,
-					document,
-					results,
-					'Admonition content must be indented by 4 spaces or a tab.',
-					LIST_LINE_REGEX,
-				);
-				checkBlankLineBeforeNonListAdmonitionContent(
-					lines,
-					i,
-					document,
-					results,
-					'Admonition content should start after a blank line unless it is a list.',
-				);
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const checkIndentation = config.get<boolean>('checkIndentation', true);
+				const checkBlankLine = config.get<boolean>('checkBlankLineBeforeAdmonitionContent', false);
+
+				if (checkIndentation) {
+					checkIndentedBody(
+						lines,
+						i,
+						document,
+						results,
+						'Admonition content must be indented by 4 spaces or a tab.',
+						LIST_LINE_REGEX,
+					);
+				}
+				if (checkBlankLine) {
+					checkBlankLineBeforeNonListAdmonitionContent(
+						lines,
+						i,
+						document,
+						results,
+						'Admonition content should start after a blank line unless it is a list.',
+					);
+				}
 				const admonitionType = getAdmonitionType(line);
 				const styleKey = normalizeAdmonitionType(admonitionType);
 				const endIndex = findAdmonitionBlockEnd(lines, i);
@@ -200,14 +208,19 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			if (isTabHeader(line)) {
-				checkIndentedBody(
-					lines,
-					i,
-					document,
-					results,
-					'Tab content must be indented by 4 spaces or a tab.',
-					/^\s*===\s+/,
-				);
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const checkIndentation = config.get<boolean>('checkIndentation', true);
+
+				if (checkIndentation) {
+					checkIndentedBody(
+						lines,
+						i,
+						document,
+						results,
+						'Tab content must be indented by 4 spaces or a tab.',
+						/^\s*===\s+/,
+					);
+				}
 			}
 
 			if (isBlockquoteLine(line)) {
@@ -411,6 +424,16 @@ function checkListSpacing(
 		return;
 	}
 
+	// Skip abbreviation syntax: *[ABBR]: definition
+	if (isAbbreviationDefinition(line)) {
+		return;
+	}
+
+	// Skip snippet syntax: --8<-- "file.md"
+	if (isSnippetSyntax(line)) {
+		return;
+	}
+
 	if (isHorizontalRule(line) || isFrontmatterDelimiter(line) || isTableLineAt(lines, lineIndex)) {
 		return;
 	}
@@ -501,15 +524,73 @@ function checkBlankLineBeforeList(
 		return;
 	}
 
-	if (isListLine(prevLine) || isBlockquoteLine(prevLine) || isTableLineAt(lines, lineIndex) || isAdmonitionHeader(prevLine)) {
+	// Always skip these cases (won't cause parsing issues)
+	if (isListLine(prevLine) || isBlockquoteLine(prevLine) || isTableLineAt(lines, lineIndex) || 
+		isAdmonitionHeader(prevLine)) {
 		return;
 	}
 
-	const range = new vscode.Range(
-		new vscode.Position(lineIndex, 0),
-		new vscode.Position(lineIndex, Math.min(1, line.length)),
+	const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+	const checkBlankLineBeforeList = config.get<boolean>('checkBlankLineBeforeList', false);
+
+	// Check if previous line is heading, horizontal rule, or code fence
+	const isHeading = /^\s*#{1,6}\s+/.test(prevLine);
+	const isHR = isHorizontalRule(prevLine);
+	const isFenceClosing = prevLine.trim().startsWith('```') || prevLine.trim().startsWith('~~~');
+	
+	// Check if previous line is a list continuation line (indented content belonging to a list item)
+	// Continuation lines start with whitespace but are not list markers themselves
+	const isListContinuation = /^\s+/.test(prevLine) && !isListLine(prevLine) && prevLine.trim().length > 0;
+	
+	// Critical: paragraph followed by list will cause parsing failure
+	// This is always an error regardless of configuration
+	const isParagraphLine = prevLine.trim().length > 0 && 
+		!isListLine(prevLine) && 
+		!isBlockquoteLine(prevLine) && 
+		!isAdmonitionHeader(prevLine) &&
+		!isTabHeader(prevLine) &&
+		!isHeading &&
+		!isHR &&
+		!isFenceClosing &&
+		!isListContinuation;
+
+	if (isParagraphLine) {
+		// This is a critical parsing error - always report
+		const range = new vscode.Range(
+			new vscode.Position(lineIndex, 0),
+			new vscode.Position(lineIndex, Math.min(1, line.length)),
+		);
+		results.push(new vscode.Diagnostic(
+			range, 
+			'List after paragraph requires a blank line (parsing error).', 
+			vscode.DiagnosticSeverity.Error
+		));
+		return;
+	}
+
+	// For heading, horizontal rule, or code fence: only warn if config is enabled
+	if (checkBlankLineBeforeList && (isHeading || isHR || isFenceClosing)) {
+		const range = new vscode.Range(
+			new vscode.Position(lineIndex, 0),
+			new vscode.Position(lineIndex, Math.min(1, line.length)),
+		);
+		results.push(new vscode.Diagnostic(
+			range, 
+			'List items should be preceded by a blank line.', 
+			vscode.DiagnosticSeverity.Warning
+		));
+	}
+}
+
+function startsWithInlineEmphasis(line: string): boolean {
+	// Check for bold: **text** or __text__
+	// Check for italic: *text* or _text_
+	// Also check for bold in middle of line followed by text like: **file/path_name.py**
+	return (
+		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
+		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
+		|| /^\s*\*\*[^*\s][^*]*\*\*/.test(line)
 	);
-	results.push(new vscode.Diagnostic(range, 'List items should be preceded by a blank line in normal text.', vscode.DiagnosticSeverity.Error));
 }
 
 function checkIndentedBody(
@@ -527,6 +608,18 @@ function checkIndentedBody(
 
 	const nextLine = lines[nextIndex];
 	if (skipIfMatches && skipIfMatches.test(nextLine)) {
+		return;
+	}
+
+	// Skip if next line is a block-level element (heading, admonition, tab, horizontal rule, etc.)
+	// OR if it has no indentation AND is bold/italic text (like **Expected**: after empty admonition)
+	const isBlockLevel = isAdmonitionHeader(nextLine) || isTabHeader(nextLine) || 
+		/^\s*#{1,6}\s+/.test(nextLine) || isHorizontalRule(nextLine);
+	
+	const nextLineIndent = getLeadingWhitespace(nextLine);
+	const isUnindentedInlineEmphasis = nextLineIndent.length === 0 && startsWithInlineEmphasis(nextLine);
+	
+	if (isBlockLevel || isUnindentedInlineEmphasis) {
 		return;
 	}
 
@@ -812,18 +905,31 @@ function createTableFirstRowBorderDecoration(kind: vscode.ColorThemeKind): vscod
 	});
 }
 
+// Check if line is an abbreviation definition: *[ABBR]: Full text
+function isAbbreviationDefinition(line: string): boolean {
+	return /^\s*\*\[[^\]]+\]:\s+.+/.test(line);
+}
+
+// Check if line is a snippet include: --8<-- "file.md" or --8<-- "file.md:section"
+function isSnippetSyntax(line: string): boolean {
+	return /^\s*--8<--\s+["'][^"']+["']/.test(line);
+}
+
 function isListLine(line: string): boolean {
+	// Skip abbreviation syntax
+	if (isAbbreviationDefinition(line)) {
+		return false;
+	}
+
+	// Skip snippet syntax
+	if (isSnippetSyntax(line)) {
+		return false;
+	}
+
 	return (
 		/^\s*[-+*]\s+/.test(line)
 		|| /^\s*\d+\.\s+/.test(line)
 		|| /^\s*[-+*]\s+\[[ xX]\]\s+/.test(line)
-	);
-}
-
-function startsWithInlineEmphasis(line: string): boolean {
-	return (
-		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
-		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
 	);
 }
 

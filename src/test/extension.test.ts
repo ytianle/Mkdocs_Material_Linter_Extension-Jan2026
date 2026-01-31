@@ -86,11 +86,11 @@ suite('MkDocs Material Linter', () => {
 		await closeAllEditors();
 	});
 
-		suite('1. Admonitions', () => {
-			test('1.1 reports admonition syntax errors', async () => {
-				const missingType = await openMarkdownDocument('!!! ');
-				const missingTypeDiagnostics = await waitForDiagnostics(missingType.document.uri, (items) => items.length === 1);
-				assert.strictEqual(missingTypeDiagnostics[0].message, 'Admonition type is required.');
+	suite('1. Admonitions', () => {
+		test('1.1 reports admonition syntax errors', async () => {
+			const missingType = await openMarkdownDocument('!!! ');
+			const missingTypeDiagnostics = await waitForDiagnostics(missingType.document.uri, (items) => items.length === 1);
+			assert.strictEqual(missingTypeDiagnostics[0].message, 'Admonition type is required.');
 
 			const invalidType = await openMarkdownDocument('!!! invalid$type');
 			const invalidTypeDiagnostics = await waitForDiagnostics(invalidType.document.uri, (items) => items.length === 1);
@@ -130,60 +130,81 @@ suite('MkDocs Material Linter', () => {
 			assert.strictEqual(diagnostics[0].message, 'Admonition content must be indented by 4 spaces or a tab.');
 		});
 
-		test('1.5 requires blank line before non-list admonition content', async () => {
+		test('1.5 requires blank line before non-list admonition content when config enabled', async () => {
+			const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+			const originalValue = config.get('checkBlankLineBeforeAdmonitionContent');
+
+			try {
+				await config.update('checkBlankLineBeforeAdmonitionContent', true, vscode.ConfigurationTarget.Global);
+				// Wait for configuration to propagate
+				await new Promise((resolve) => setTimeout(resolve, 200));
+
+				const editor = await openMarkdownDocument([
+					'!!! note',
+					'    Content without blank line',
+				].join('\n'));
+
+				// Force a re-lint by making a small edit
+				await editor.edit((editBuilder) => {
+					editBuilder.insert(new vscode.Position(0, 0), ' ');
+				});
+				await editor.edit((editBuilder) => {
+					editBuilder.delete(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)));
+				});
+
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length > 0, 3000);
+				assert.ok(diagnostics.length > 0, 'Expected at least one diagnostic');
+				const admonitionDiagnostic = diagnostics.find((d) => d.message.includes('blank line'));
+				assert.ok(admonitionDiagnostic, 'Expected diagnostic about blank line before admonition content');
+			} finally {
+				await config.update('checkBlankLineBeforeAdmonitionContent', originalValue, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('1.6 accepts a valid admonition', async () => {
+			const editor = await openMarkdownDocument(['!!! note "Note"', '', '    Valid content'].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
+			assert.ok(Array.isArray(diagnostics));
+		});
+
+		test('1.7 accepts collapsible admonitions', async () => {
 			const editor = await openMarkdownDocument([
-				'!!! note',
-				'    Content without blank line',
+				'??? note "Collapsed"',
+				'',
+				'    Collapsible content',
+				'',
+				'???+ note "Expanded"',
+				'',
+				'    Expanded content',
 			].join('\n'));
-
-			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-			assert.strictEqual(diagnostics[0].message, 'Admonition content should start after a blank line unless it is a list.');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
 		});
 
-			test('1.6 accepts a valid admonition', async () => {
-				const editor = await openMarkdownDocument(['!!! note "Note"', '', '    Valid content'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-				assert.ok(Array.isArray(diagnostics));
-			});
-
-			test('1.7 accepts collapsible admonitions', async () => {
-				const editor = await openMarkdownDocument([
-					'??? note "Collapsed"',
-					'',
-					'    Collapsible content',
-					'',
-					'???+ note "Expanded"',
-					'',
-					'    Expanded content',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('1.8 accepts empty admonition titles', async () => {
-				const editor = await openMarkdownDocument([
-					'!!! note ""',
-					'',
-					'    Empty title content',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('1.9 accepts nested admonitions', async () => {
-				const editor = await openMarkdownDocument([
-					'!!! note "Outer"',
-					'',
-					'    Outer content',
-					'',
-					'    !!! warning "Inner"',
-					'',
-					'        Inner content',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
+		test('1.8 accepts empty admonition titles', async () => {
+			const editor = await openMarkdownDocument([
+				'!!! note ""',
+				'',
+				'    Empty title content',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
 		});
+
+		test('1.9 accepts nested admonitions', async () => {
+			const editor = await openMarkdownDocument([
+				'!!! note "Outer"',
+				'',
+				'    Outer content',
+				'',
+				'    !!! warning "Inner"',
+				'',
+				'        Inner content',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+	});
 
 	suite('2. Annotations', () => {
 		test('2.1 accepts a simple annotation-like block', async () => {
@@ -201,59 +222,59 @@ suite('MkDocs Material Linter', () => {
 		});
 	});
 
-		suite('4. Code blocks', () => {
-			test('4.1 reports unclosed code fence', async () => {
-				const editor = await openMarkdownDocument([
-					'```',
-					'code',
-				].join('\n'));
+	suite('4. Code blocks', () => {
+		test('4.1 reports unclosed code fence', async () => {
+			const editor = await openMarkdownDocument([
+				'```',
+				'code',
+			].join('\n'));
 
 			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
 			assert.strictEqual(diagnostics[0].message, 'Code fence must be closed.');
 		});
 
-			test('4.2 accepts fenced code block with language and options', async () => {
-				const editor = await openMarkdownDocument(['```js title="file.js" hl_lines="1"', 'console.log(1);', '```'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-				assert.ok(Array.isArray(diagnostics));
-			});
-
-			test('4.3 reports unclosed tilde code fence', async () => {
-				const editor = await openMarkdownDocument([
-					'~~~',
-					'code',
-				].join('\n'));
-
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-				assert.strictEqual(diagnostics[0].message, 'Code fence must be closed.');
-			});
-
-			test('4.4 ignores list spacing inside code fences', async () => {
-				const editor = await openMarkdownDocument([
-					'```',
-					'-item',
-					'```',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('4.5 requires closing fence to match opening length', async () => {
-				const editor = await openMarkdownDocument([
-					'````',
-					'code',
-					'```',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-				assert.strictEqual(diagnostics[0].message, 'Code fence must be closed.');
-			});
+		test('4.2 accepts fenced code block with language and options', async () => {
+			const editor = await openMarkdownDocument(['```js title="file.js" hl_lines="1"', 'console.log(1);', '```'].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
+			assert.ok(Array.isArray(diagnostics));
 		});
 
-		suite('5. Content tabs', () => {
-			test('5.1 reports tab syntax errors', async () => {
-				const editor = await openMarkdownDocument([
-					'===Tab',
-					'=== Tab',
+		test('4.3 reports unclosed tilde code fence', async () => {
+			const editor = await openMarkdownDocument([
+				'~~~',
+				'code',
+			].join('\n'));
+
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
+			assert.strictEqual(diagnostics[0].message, 'Code fence must be closed.');
+		});
+
+		test('4.4 ignores list spacing inside code fences', async () => {
+			const editor = await openMarkdownDocument([
+				'```',
+				'-item',
+				'```',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('4.5 requires closing fence to match opening length', async () => {
+			const editor = await openMarkdownDocument([
+				'````',
+				'code',
+				'```',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
+			assert.strictEqual(diagnostics[0].message, 'Code fence must be closed.');
+		});
+	});
+
+	suite('5. Content tabs', () => {
+		test('5.1 reports tab syntax errors', async () => {
+			const editor = await openMarkdownDocument([
+				'===Tab',
+				'=== Tab',
 			].join('\n'));
 
 			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 2);
@@ -274,33 +295,33 @@ suite('MkDocs Material Linter', () => {
 			assert.strictEqual(diagnostics[0].message, 'Tab content must be indented by 4 spaces or a tab.');
 		});
 
-			test('5.3 accepts tab group with two tabs', async () => {
-				const editor = await openMarkdownDocument(['=== "One"', '    Content A', '', '=== "Two"', '    Content B'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-				assert.ok(Array.isArray(diagnostics));
-			});
-
-			test('5.4 reports mismatched tab title quotes', async () => {
-				const editor = await openMarkdownDocument('=== "Tab\'');
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-				assert.strictEqual(diagnostics[0].message, 'Tab title must be wrapped in matching quotes.');
-			});
-
-			test('5.5 accepts single-quoted tab titles', async () => {
-				const editor = await openMarkdownDocument([
-					"=== 'Single'",
-					'    Content',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
+		test('5.3 accepts tab group with two tabs', async () => {
+			const editor = await openMarkdownDocument(['=== "One"', '    Content A', '', '=== "Two"', '    Content B'].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
+			assert.ok(Array.isArray(diagnostics));
 		});
 
-		suite('6. Data tables', () => {
-			test('6.1 reports missing table header separator', async () => {
-				const editor = await openMarkdownDocument([
-					'| A |',
-					'not a separator',
+		test('5.4 reports mismatched tab title quotes', async () => {
+			const editor = await openMarkdownDocument('=== "Tab\'');
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
+			assert.strictEqual(diagnostics[0].message, 'Tab title must be wrapped in matching quotes.');
+		});
+
+		test('5.5 accepts single-quoted tab titles', async () => {
+			const editor = await openMarkdownDocument([
+				"=== 'Single'",
+				'    Content',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+	});
+
+	suite('6. Data tables', () => {
+		test('6.1 reports missing table header separator', async () => {
+			const editor = await openMarkdownDocument([
+				'| A |',
+				'not a separator',
 			].join('\n'));
 
 			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
@@ -317,49 +338,49 @@ suite('MkDocs Material Linter', () => {
 			assert.strictEqual(diagnostics[0].message, 'Table separator column count must match the header.');
 		});
 
-			test('6.3 accepts a simple table', async () => {
-				const editor = await openMarkdownDocument(['| A | B |', '| --- | --- |', '| 1 | 2 |'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-				assert.ok(Array.isArray(diagnostics));
-			});
-
-			test('6.4 accepts simplified table syntax without outer pipes', async () => {
-				const editor = await openMarkdownDocument(['A | B | C', '--- | --- | ---', '1 | 2 | 3'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('6.5 accepts mixed pipe styles in tables', async () => {
-				const editor = await openMarkdownDocument([
-					'| A | B |',
-					'--- | ---',
-					'1 | 2',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('6.6 accepts header after blank line', async () => {
-				const editor = await openMarkdownDocument([
-					'',
-					'| A | B |',
-					'| --- | --- |',
-					'| 1 | 2 |',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
-
-			test('6.7 ignores list spacing inside tables', async () => {
-				const editor = await openMarkdownDocument([
-					'| Item |',
-					'| --- |',
-					'| -item |',
-				].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-				assert.strictEqual(diagnostics.length, 0);
-			});
+		test('6.3 accepts a simple table', async () => {
+			const editor = await openMarkdownDocument(['| A | B |', '| --- | --- |', '| 1 | 2 |'].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
+			assert.ok(Array.isArray(diagnostics));
 		});
+
+		test('6.4 accepts simplified table syntax without outer pipes', async () => {
+			const editor = await openMarkdownDocument(['A | B | C', '--- | --- | ---', '1 | 2 | 3'].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('6.5 accepts mixed pipe styles in tables', async () => {
+			const editor = await openMarkdownDocument([
+				'| A | B |',
+				'--- | ---',
+				'1 | 2',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('6.6 accepts header after blank line', async () => {
+			const editor = await openMarkdownDocument([
+				'',
+				'| A | B |',
+				'| --- | --- |',
+				'| 1 | 2 |',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+
+		test('6.7 ignores list spacing inside tables', async () => {
+			const editor = await openMarkdownDocument([
+				'| Item |',
+				'| --- |',
+				'| -item |',
+			].join('\n'));
+			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+			assert.strictEqual(diagnostics.length, 0);
+		});
+	});
 
 	suite('7. Diagrams', () => {
 		test('7.1 accepts mermaid diagram block', async () => {
@@ -409,11 +430,11 @@ suite('MkDocs Material Linter', () => {
 		});
 	});
 
-		suite('13. Lists', () => {
-			test('13.1 reports list spacing errors', async () => {
-				const editor = await openMarkdownDocument([
-					'-item',
-					'1.item',
+	suite('13. Lists', () => {
+		test('13.1 reports list spacing errors', async () => {
+			const editor = await openMarkdownDocument([
+				'-item',
+				'1.item',
 				'',
 				'- [x]item',
 			].join('\n'));
@@ -434,14 +455,9 @@ suite('MkDocs Material Linter', () => {
 			].join('\n'));
 
 			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-			assert.strictEqual(diagnostics[0].message, 'List items should be preceded by a blank line in normal text.');
-		});
-
-			test('13.3 accepts nested list examples', async () => {
-				const editor = await openMarkdownDocument(['- Item', '    - Sub', '1. Ordered', '    1. Sub-ordered'].join('\n'));
-				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-				assert.ok(Array.isArray(diagnostics));
-			});
+			assert.strictEqual(diagnostics.length, 1);
+			assert.strictEqual(diagnostics[0].severity, vscode.DiagnosticSeverity.Error);
+			assert.ok(diagnostics[0].message.includes('parsing error'));
 
 			test('13.4 accepts task list markers with uppercase X', async () => {
 				const editor = await openMarkdownDocument(['- [X] Done'].join('\n'));
@@ -494,11 +510,11 @@ suite('MkDocs Material Linter', () => {
 				const editor = await openMarkdownDocument([
 					'$$',
 					'math',
-			].join('\n'));
+				].join('\n'));
 
-			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
-			assert.strictEqual(diagnostics[0].message, 'Math block must be closed with $$.');
-		});
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 1);
+				assert.strictEqual(diagnostics[0].message, 'Math block must be closed with $$.');
+			});
 
 			test('14.2 accepts inline and block math', async () => {
 				const editor = await openMarkdownDocument(['Inline $E=mc^2$', '', '$$\nE=mc^2\n$$'].join('\n'));
@@ -513,26 +529,26 @@ suite('MkDocs Material Linter', () => {
 			});
 		});
 
-	suite('15. Tooltips', () => {
-		test('15.1 accepts tooltip-like inline examples', async () => {
-			const editor = await openMarkdownDocument(['Hover text{: .tooltip }'].join('\n'));
-			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
-			assert.ok(Array.isArray(diagnostics));
+		suite('15. Tooltips', () => {
+			test('15.1 accepts tooltip-like inline examples', async () => {
+				const editor = await openMarkdownDocument(['Hover text{: .tooltip }'].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => true);
+				assert.ok(Array.isArray(diagnostics));
+			});
 		});
-	});
 
 		suite('16. Documents', () => {
 			test('16.1 ignores linting inside frontmatter', async () => {
 				const editor = await openMarkdownDocument([
 					'---',
 					'-item',
-				'```',
-				'---',
-			].join('\n'));
+					'```',
+					'---',
+				].join('\n'));
 
-			const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
-			assert.strictEqual(diagnostics.length, 0);
-		});
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
 
 			test('16.2 ignores non-markdown documents', async () => {
 				const document = await vscode.workspace.openTextDocument({ language: 'plaintext', content: '-item' });
@@ -559,26 +575,151 @@ suite('MkDocs Material Linter', () => {
 			});
 		});
 
-	suite('17. Commands', () => {
-		test('17.1 toggle underline wraps and unwraps selections', async () => {
-			const editor = await openMarkdownDocument('hello');
-			editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 5));
-			await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
-			await waitForDocumentText(editor.document, '^^hello^^');
+		suite('17. Commands', () => {
+			test('17.1 toggle underline wraps and unwraps selections', async () => {
+				const editor = await openMarkdownDocument('hello');
+				editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 5));
+				await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
+				await waitForDocumentText(editor.document, '^^hello^^');
 
-			editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 9));
-			await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
-			await waitForDocumentText(editor.document, 'hello');
+				editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 9));
+				await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
+				await waitForDocumentText(editor.document, 'hello');
+			});
+
+			test('17.2 toggle underline inserts markers at empty cursor', async () => {
+				const editor = await openMarkdownDocument('');
+				editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0));
+				await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
+				await waitForDocumentText(editor.document, '^^^^');
+				const selection = await waitForSelection(editor, (value) => value.start.character === 6 && value.end.character === 6);
+				assert.strictEqual(selection.start.character, 6);
+				assert.strictEqual(selection.end.character, 6);
+			});
 		});
 
-		test('17.2 toggle underline inserts markers at empty cursor', async () => {
-			const editor = await openMarkdownDocument('');
-			editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0));
-			await vscode.commands.executeCommand('mkdocs-material-linter.toggleUnderline');
-			await waitForDocumentText(editor.document, '^^^^');
-			const selection = await waitForSelection(editor, (value) => value.start.character === 6 && value.end.character === 6);
-			assert.strictEqual(selection.start.character, 6);
-			assert.strictEqual(selection.end.character, 6);
+		suite('18. False Positives Fixes', () => {
+			test('18.1 does not flag bold text as list item error', async () => {
+				const editor = await openMarkdownDocument('**file/path_name.py:**');
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.2 does not flag bold text in paragraph as list item', async () => {
+				const editor = await openMarkdownDocument([
+					'**file/path_name.py** and **another/file/path_name.html**',
+					'in a single paragraph.',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.3 does not flag abbreviation syntax as list item', async () => {
+				const editor = await openMarkdownDocument('*[UML]: Unified Modeling Language');
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.4 does not flag snippet syntax as list item', async () => {
+				const editor = await openMarkdownDocument('--8<-- "snippet.md:section_1"');
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.5 accepts snippet syntax with single quotes', async () => {
+				const editor = await openMarkdownDocument("--8<-- 'snippet.md:section_2'");
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.6 accepts indented snippet syntax', async () => {
+				const editor = await openMarkdownDocument('    --8<-- "snippet.md"');
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+
+			test('18.7 accepts multiple abbreviations in a document', async () => {
+				const editor = await openMarkdownDocument([
+					'*[HTML]: Hyper Text Markup Language',
+					'*[CSS]: Cascading Style Sheets',
+				].join('\n'));
+				const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+				assert.strictEqual(diagnostics.length, 0);
+			});
+		});
+
+		suite('19. Configuration Options', () => {
+			test('19.1 respects checkBlankLineBeforeAdmonitionContent setting', async () => {
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const originalValue = config.get('checkBlankLineBeforeAdmonitionContent');
+
+				try {
+					await config.update('checkBlankLineBeforeAdmonitionContent', false, vscode.ConfigurationTarget.Global);
+					const editor = await openMarkdownDocument([
+						'!!! note',
+						'    Content without blank line',
+					].join('\n'));
+					const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+					assert.strictEqual(diagnostics.length, 0);
+				} finally {
+					await config.update('checkBlankLineBeforeAdmonitionContent', originalValue, vscode.ConfigurationTarget.Global);
+				}
+			});
+
+			test('19.2 paragraph before list always errors (parsing issue)', async () => {
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const originalValue = config.get('checkBlankLineBeforeList');
+
+				try {
+					// Even with checkBlankLineBeforeList: false, paragraph->list should error
+					await config.update('checkBlankLineBeforeList', false, vscode.ConfigurationTarget.Global);
+					const editor = await openMarkdownDocument([
+						'Paragraph text',
+						'- list item',
+					].join('\n'));
+					const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length > 0);
+					assert.strictEqual(diagnostics.length, 1);
+					assert.strictEqual(diagnostics[0].severity, vscode.DiagnosticSeverity.Error);
+					assert.ok(diagnostics[0].message.includes('parsing error'));
+				} finally {
+					await config.update('checkBlankLineBeforeList', originalValue, vscode.ConfigurationTarget.Global);
+				}
+			});
+
+			test('19.3 respects checkIndentation setting for admonitions', async () => {
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const originalValue = config.get('checkIndentation');
+
+				try {
+					await config.update('checkIndentation', false, vscode.ConfigurationTarget.Global);
+					const editor = await openMarkdownDocument([
+						'!!! note',
+						'',
+						'Not indented',
+					].join('\n'));
+					const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+					assert.strictEqual(diagnostics.length, 0);
+				} finally {
+					await config.update('checkIndentation', originalValue, vscode.ConfigurationTarget.Global);
+				}
+			});
+
+			test('19.4 respects checkIndentation setting for tabs', async () => {
+				const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+				const originalValue = config.get('checkIndentation');
+
+				try {
+					await config.update('checkIndentation', false, vscode.ConfigurationTarget.Global);
+					const editor = await openMarkdownDocument([
+						'=== "Tab"',
+						'Not indented',
+					].join('\n'));
+					const diagnostics = await waitForDiagnostics(editor.document.uri, (items) => items.length === 0);
+					assert.strictEqual(diagnostics.length, 0);
+				} finally {
+					await config.update('checkIndentation', originalValue, vscode.ConfigurationTarget.Global);
+				}
+			});
 		});
 	});
 });
