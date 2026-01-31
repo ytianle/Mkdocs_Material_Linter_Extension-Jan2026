@@ -510,13 +510,6 @@ function checkBlankLineBeforeList(
 	document: vscode.TextDocument,
 	results: vscode.Diagnostic[],
 ): void {
-	const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
-	const checkBlankLineBeforeList = config.get<boolean>('checkBlankLineBeforeList', true);
-
-	if (!checkBlankLineBeforeList) {
-		return;
-	}
-
 	const line = lines[lineIndex];
 	if (!isListLine(line)) {
 		return;
@@ -531,15 +524,68 @@ function checkBlankLineBeforeList(
 		return;
 	}
 
-	if (isListLine(prevLine) || isBlockquoteLine(prevLine) || isTableLineAt(lines, lineIndex) || isAdmonitionHeader(prevLine)) {
+	// Always skip these cases (won't cause parsing issues)
+	if (isListLine(prevLine) || isBlockquoteLine(prevLine) || isTableLineAt(lines, lineIndex) || 
+		isAdmonitionHeader(prevLine)) {
 		return;
 	}
 
-	const range = new vscode.Range(
-		new vscode.Position(lineIndex, 0),
-		new vscode.Position(lineIndex, Math.min(1, line.length)),
+	const config = vscode.workspace.getConfiguration('mkdocs-material-linter');
+	const checkBlankLineBeforeList = config.get<boolean>('checkBlankLineBeforeList', false);
+
+	// Check if previous line is heading, horizontal rule, or code fence
+	const isHeading = /^\s*#{1,6}\s+/.test(prevLine);
+	const isHR = isHorizontalRule(prevLine);
+	const isFenceClosing = prevLine.trim().startsWith('```') || prevLine.trim().startsWith('~~~');
+	
+	// Critical: paragraph followed by list will cause parsing failure
+	// This is always an error regardless of configuration
+	const isParagraphLine = prevLine.trim().length > 0 && 
+		!isListLine(prevLine) && 
+		!isBlockquoteLine(prevLine) && 
+		!isAdmonitionHeader(prevLine) &&
+		!isTabHeader(prevLine) &&
+		!isHeading &&
+		!isHR &&
+		!isFenceClosing;
+
+	if (isParagraphLine) {
+		// This is a critical parsing error - always report
+		const range = new vscode.Range(
+			new vscode.Position(lineIndex, 0),
+			new vscode.Position(lineIndex, Math.min(1, line.length)),
+		);
+		results.push(new vscode.Diagnostic(
+			range, 
+			'List after paragraph requires a blank line (parsing error).', 
+			vscode.DiagnosticSeverity.Error
+		));
+		return;
+	}
+
+	// For heading, horizontal rule, or code fence: only warn if config is enabled
+	if (checkBlankLineBeforeList && (isHeading || isHR || isFenceClosing)) {
+		const range = new vscode.Range(
+			new vscode.Position(lineIndex, 0),
+			new vscode.Position(lineIndex, Math.min(1, line.length)),
+		);
+		results.push(new vscode.Diagnostic(
+			range, 
+			'List items should be preceded by a blank line.', 
+			vscode.DiagnosticSeverity.Warning
+		));
+	}
+}
+
+function startsWithInlineEmphasis(line: string): boolean {
+	// Check for bold: **text** or __text__
+	// Check for italic: *text* or _text_
+	// Also check for bold in middle of line followed by text like: **file/path_name.py**
+	return (
+		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
+		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
+		|| /^\s*\*\*[^*\s][^*]*\*\*/.test(line)
 	);
-	results.push(new vscode.Diagnostic(range, 'List items should be preceded by a blank line in normal text.', vscode.DiagnosticSeverity.Error));
 }
 
 function checkIndentedBody(
@@ -557,6 +603,13 @@ function checkIndentedBody(
 
 	const nextLine = lines[nextIndex];
 	if (skipIfMatches && skipIfMatches.test(nextLine)) {
+		return;
+	}
+
+	// Skip if next line is a block-level element (heading, admonition, tab, horizontal rule, etc.)
+	if (isAdmonitionHeader(nextLine) || isTabHeader(nextLine) || 
+		/^\s*#{1,6}\s+/.test(nextLine) || isHorizontalRule(nextLine) ||
+		startsWithInlineEmphasis(nextLine)) {
 		return;
 	}
 
@@ -867,17 +920,6 @@ function isListLine(line: string): boolean {
 		/^\s*[-+*]\s+/.test(line)
 		|| /^\s*\d+\.\s+/.test(line)
 		|| /^\s*[-+*]\s+\[[ xX]\]\s+/.test(line)
-	);
-}
-
-function startsWithInlineEmphasis(line: string): boolean {
-	// Check for bold: **text** or __text__
-	// Check for italic: *text* or _text_
-	// Also check for bold in middle of line followed by text like: **file/path_name.py**
-	return (
-		/^\s*(\*\*|__)\S[^*_]*\1/.test(line)
-		|| /^\s*(\*|_)\S([^*_]|\\\*)+\1/.test(line)
-		|| /^\s*\*\*[^*\s][^*]*\*\*/.test(line)
 	);
 }
 

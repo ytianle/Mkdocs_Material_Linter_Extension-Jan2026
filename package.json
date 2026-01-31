@@ -3,7 +3,7 @@
   "displayName": "Mkdocs Material Linter",
   "description": "A VS Code linter and highlighter for MkDocs Material syntax (admonitions, tabs, tables, and more).",
   "publisher": "ytianle",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "engines": {
     "vscode": "^1.108.0"
   },
@@ -80,8 +80,8 @@
       "properties": {
         "mkdocs-material-linter.checkBlankLineBeforeList": {
           "type": "boolean",
-          "default": true,
-          "description": "Check that lists are preceded by a blank line in normal text."
+          "default": false,
+          "description": "Require blank lines before lists for style consistency. Note: Paragraph→List errors are always reported regardless of this setting (parsing issue)."
         },
         "mkdocs-material-linter.checkBlankLineBeforeAdmonitionContent": {
           "type": "boolean",
